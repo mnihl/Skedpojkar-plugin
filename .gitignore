@@ -1,6 +1,8 @@
 .gradle
 build
 bin/
+sounds_tmp/
+SOUND_PLAN.md
 .idea/
 .project
 .settings/

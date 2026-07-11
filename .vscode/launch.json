@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "RuneLite with plugin",
+            "request": "launch",
+            "mainClass": "com.corgifeatures.CorgiFeaturesPluginTest",
+            "vmArgs": "-ea"
+        }
+    ]
+}

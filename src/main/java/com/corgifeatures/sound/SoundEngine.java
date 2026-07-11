@@ -13,6 +13,7 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineEvent;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLite;
 
@@ -51,7 +52,10 @@ public class SoundEngine
 				.append("to give Corgi's Various Features its sounds:\n\n");
 			for (Sound sound : Sound.values())
 			{
-				sb.append(sound.getFileName()).append('\n');
+				for (String fileName : sound.getFileNames())
+				{
+					sb.append(fileName).append('\n');
+				}
 			}
 			Files.write(new File(SOUND_DIR, "README.txt").toPath(), sb.toString().getBytes(StandardCharsets.UTF_8));
 		}
@@ -72,7 +76,7 @@ public class SoundEngine
 
 	private void playSync(Sound sound)
 	{
-		File file = new File(SOUND_DIR, sound.getFileName());
+		File file = new File(SOUND_DIR, sound.pickFileName());
 		if (!file.exists())
 		{
 			log.debug("Sound file missing, skipping: {}", file);
@@ -92,6 +96,12 @@ public class SoundEngine
 				}
 			});
 			clip.start();
+		}
+		catch (UnsupportedAudioFileException e)
+		{
+			log.warn("{} is not a playable .wav file. Java only plays uncompressed PCM wavs — "
+				+ "convert it (e.g. Audacity: Export as WAV, signed 16-bit PCM). "
+				+ "Renaming an .mp3 to .wav is not enough.", file.getName());
 		}
 		catch (Exception e)
 		{

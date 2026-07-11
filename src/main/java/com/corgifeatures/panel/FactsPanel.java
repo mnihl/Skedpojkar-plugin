@@ -26,6 +26,7 @@ public class FactsPanel extends JPanel
 		"Gnomes invented the crossbow, according to RuneScape lore.",
 		"A corgi in a party hat outranks all other players. House rule.",
 		"Corgis can run up to 25 mph despite their tiny legs.",
+		"Yagsipilif."
 	};
 
 	private final JTextArea factArea = new JTextArea();
