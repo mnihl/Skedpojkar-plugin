@@ -1,7 +1,6 @@
 package com.corgifeatures.panel;
 
 import java.awt.BorderLayout;
-import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,11 +36,11 @@ public class TicTacToePanel extends JPanel
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
 		JPanel grid = new JPanel(new GridLayout(3, 3, 4, 4));
+		grid.setOpaque(false);
 		for (int i = 0; i < 9; i++)
 		{
 			final int cell = i;
-			cells[i] = new JButton("");
-			cells[i].setFont(cells[i].getFont().deriveFont(Font.BOLD, 20f));
+			cells[i] = TttUi.createCell();
 			cells[i].addActionListener(e -> onPlayerMove(cell));
 			grid.add(cells[i]);
 		}
@@ -50,7 +49,7 @@ public class TicTacToePanel extends JPanel
 		reset.addActionListener(e -> resetGame());
 
 		add(status, BorderLayout.NORTH);
-		add(grid, BorderLayout.CENTER);
+		add(TttUi.center(grid), BorderLayout.CENTER);
 		add(reset, BorderLayout.SOUTH);
 	}
 
@@ -73,7 +72,7 @@ public class TicTacToePanel extends JPanel
 	private void place(int cell, String symbol)
 	{
 		board[cell] = symbol;
-		cells[cell].setText(symbol);
+		TttUi.setCell(cells[cell], symbol);
 	}
 
 	private int pickAiMove()
@@ -159,7 +158,7 @@ public class TicTacToePanel extends JPanel
 		for (int i = 0; i < 9; i++)
 		{
 			board[i] = null;
-			cells[i].setText("");
+			TttUi.setCell(cells[i], null);
 		}
 		status.setText("Your move. You are X.");
 	}

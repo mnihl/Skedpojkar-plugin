@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.sound.sampled.AudioInputStream;
@@ -67,11 +68,17 @@ public class SoundEngine
 
 	public void play(Sound sound)
 	{
+		play(sound, 0);
+	}
+
+	/** Plays a sound after the given delay (milliseconds). */
+	public void play(Sound sound, long delayMs)
+	{
 		if (!config.soundsEnabled() || config.soundVolume() <= 0)
 		{
 			return;
 		}
-		executor.execute(() -> playSync(sound));
+		executor.schedule(() -> playSync(sound), delayMs, TimeUnit.MILLISECONDS);
 	}
 
 	private void playSync(Sound sound)

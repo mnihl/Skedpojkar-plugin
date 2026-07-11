@@ -110,6 +110,54 @@ public interface CorgiFeaturesConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "pvpZeroHitSound",
+		name = "Sound on PvP zero hit",
+		description = "30% chance to play a sound when you hit a 0 on another player",
+		section = announcementsSection,
+		position = 7
+	)
+	default boolean pvpZeroHitSound()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "pvpKillSound",
+		name = "Sound on PvP kill",
+		description = "Play a sound (2s delayed) when a player you recently damaged dies",
+		section = announcementsSection,
+		position = 8
+	)
+	default boolean pvpKillSound()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "sepulchreSound",
+		name = "Sound on Sepulchre floor V",
+		description = "Play a sound when you complete the highest floor of the Hallowed Sepulchre",
+		section = announcementsSection,
+		position = 9
+	)
+	default boolean sepulchreSound()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "goodJobSound",
+		name = "Sound on gate/Gauntlet",
+		description = "Play a sound when you pass the Al Kharid gate or complete the Corrupted Gauntlet",
+		section = announcementsSection,
+		position = 10
+	)
+	default boolean goodJobSound()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 		keyName = "soundsEnabled",
 		name = "Enable sounds",
 		description = "Play .wav sound files from the corgi-features-sounds folder in your .runelite directory",
@@ -131,6 +179,6 @@ public interface CorgiFeaturesConfig extends Config
 	)
 	default int soundVolume()
 	{
-		return 100;
+		return 25;
 	}
 }

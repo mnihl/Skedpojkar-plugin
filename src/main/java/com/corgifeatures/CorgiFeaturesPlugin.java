@@ -13,9 +13,12 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
+import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.EventBus;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.party.WSClient;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -89,6 +92,17 @@ public class CorgiFeaturesPlugin extends Plugin
 		navButton = null;
 
 		log.info("Corgi's Various Features stopped");
+	}
+
+	/** The cookie count is stored per character, so re-read it when the character changes. */
+	@Subscribe
+	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
+	{
+		CorgiFeaturesPanel currentPanel = panel;
+		if (currentPanel != null)
+		{
+			SwingUtilities.invokeLater(currentPanel.getCookieClickerPanel()::refresh);
+		}
 	}
 
 	@Provides

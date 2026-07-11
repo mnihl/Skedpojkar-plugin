@@ -11,7 +11,9 @@ import javax.swing.SwingConstants;
 import net.runelite.client.config.ConfigManager;
 
 /**
- * Minimal cookie clicker. The count persists between sessions via ConfigManager.
+ * Minimal cookie clicker. The count persists per character (RS profile); counts
+ * baked while logged out, or from before per-character storage existed, live
+ * under a shared account-wide key that doubles as a migration fallback.
  */
 public class CookieClickerPanel extends JPanel
 {
@@ -39,7 +41,7 @@ public class CookieClickerPanel extends JPanel
 		{
 			cookies++;
 			updateLabel();
-			configManager.setConfiguration(CorgiFeaturesConfig.GROUP, COUNT_KEY, cookies);
+			saveCount();
 		});
 
 		JLabel hint = new JLabel("<html><center>Upgrades, corgis-per-second<br>and prestige: coming soon.</center></html>", SwingConstants.CENTER);
@@ -49,16 +51,41 @@ public class CookieClickerPanel extends JPanel
 		add(hint, BorderLayout.SOUTH);
 	}
 
+	/** Re-reads the count for the current character. Called on login/account switch. */
+	public void refresh()
+	{
+		cookies = loadCount();
+		updateLabel();
+	}
+
 	private long loadCount()
 	{
+		String stored = configManager.getRSProfileConfiguration(CorgiFeaturesConfig.GROUP, COUNT_KEY);
+		if (stored == null)
+		{
+			// Not logged in yet, or this character has no count: fall back to the shared key
+			stored = configManager.getConfiguration(CorgiFeaturesConfig.GROUP, COUNT_KEY);
+		}
 		try
 		{
-			String stored = configManager.getConfiguration(CorgiFeaturesConfig.GROUP, COUNT_KEY);
 			return stored == null ? 0 : Long.parseLong(stored);
 		}
 		catch (NumberFormatException e)
 		{
 			return 0;
+		}
+	}
+
+	private void saveCount()
+	{
+		if (configManager.getRSProfileKey() != null)
+		{
+			configManager.setRSProfileConfiguration(CorgiFeaturesConfig.GROUP, COUNT_KEY, cookies);
+		}
+		else
+		{
+			// Logged out: keep the count in the shared key so it isn't lost
+			configManager.setConfiguration(CorgiFeaturesConfig.GROUP, COUNT_KEY, cookies);
 		}
 	}
 

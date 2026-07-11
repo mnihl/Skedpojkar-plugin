@@ -10,12 +10,17 @@ see [Current state](#current-state-whats-real-whats-barebones) before judging it
 
 ### Announcements (sounds + chat messages)
 Reacts to in-game events with a local chat message (only you see it) and/or a sound:
-- Your level-ups and deaths
+- Your level-ups and deaths (death picks randomly between two sound files)
 - A **target player** appearing nearby, dying, or talking in public chat.
   Target usernames are typed into the plugin settings (comma-separated), so no
   names are ever hardcoded in this public repo.
+- PvP: hitting a 0 on another player (30% chance), and killing a player
+  (a player you recently damaged dies; sound plays 2 s later)
+- Completing Floor 5 of the Hallowed Sepulchre or the Corrupted Gauntlet
+- Passing the Al Kharid toll gate
 
-Sounds are `.wav` files you drop into `~/.runelite/corgi-features-sounds/`
+Sounds are uncompressed PCM `.wav` files (a renamed `.mp3` won't play) you drop
+into `~/.runelite/corgi-features-sounds/`
 (on Windows: `C:\Users\<you>\.runelite\corgi-features-sounds\`). The folder and a
 `README.txt` listing the expected file names are created automatically on first start.
 
@@ -26,24 +31,25 @@ A sidebar button (orange "C" icon) opens a panel with tabs:
 - **Facts** — random facts from a built-in pool
 - **Party** — multiplayer tic-tac-toe (prototype, see below)
 
-### Party tic-tac-toe (prototype)
+### Party tic-tac-toe
 Both players run this plugin and join the same party via RuneLite's built-in
 **Party plugin** (same passphrase). Moves are relayed over RuneLite's official
-party websocket: your moves show as X, party members' as O.
+party websocket. The member with the lowest party id is X and moves first,
+turns alternate, and wins/draws are detected. Designed for exactly 2 players.
 
 ## Current state: what's real, what's barebones
 
 | Area | Status |
 |---|---|
-| Event triggers (level-up, death, target spawn/death/chat) | Working, but trigger set is small |
-| Chat announcements | Working |
-| Sound playback | Working code, but **no sound files ship with the plugin** — silent until you drop `.wav`s in the sounds folder. Missing files are skipped with only a debug log. |
-| Cookie clicker | Working + persistent; no upgrades/auto-clickers yet |
-| Tic-tac-toe vs AI | Fully working |
+| Event triggers (level-up, death, targets, PvP, Sepulchre, Gauntlet, Al Kharid gate) | Working; verified in a live client except Sepulchre/Gauntlet completions (message matching in place, wordings confirmed) |
+| Chat announcements | Working, verified in-game |
+| Sound playback | Working, verified in-game — but **no sound files ship with the plugin**; silent until you drop PCM `.wav`s in the sounds folder. Missing files are skipped with only a debug log; unsupported formats log an explanation. |
+| Cookie clicker | Working; count persists per character |
+| Tic-tac-toe vs AI | Fully working, verified in-game |
 | Facts | Working; pool is a hardcoded array |
-| Party tic-tac-toe | Prototype: no turn enforcement, no win detection, both players see *themselves* as X, only sensible with exactly 2 party members |
+| Party tic-tac-toe | Working: consistent X/O (lowest party id is X), enforced turns, win/draw detection. Designed for exactly 2 players. |
 | Sidebar icon | Placeholder drawn in code, not a real image |
-| In-game testing | **None yet** — compiles against the RuneLite API but has never been run in a live client |
+| In-game testing | Core features verified in a live client; not yet verified: Sepulchre/Gauntlet triggers, party TTT rule changes (turns/wins) |
 
 ## How to test (once you can run the client)
 
@@ -107,11 +113,10 @@ like `CookieClickerPanel` does. Note: only touch Swing from the Swing thread —
 if reacting to game/party events, wrap UI updates in `SwingUtilities.invokeLater`
 (see `PartyTicTacToe.notifyBoardChanged`).
 
-**Improve party tic-tac-toe:** the known gaps, roughly in order of value —
-turn enforcement and consistent X/O assignment (e.g. lower `memberId` is X and
-moves alternate), win/draw detection (reuse `LINES` logic from `TicTacToePanel`),
-and a challenge/accept handshake instead of a free-for-all board. New message
-types: extend `PartyMemberMessage`, register in the plugin's `startUp()` with
+**Improve party tic-tac-toe:** turn enforcement, X/O assignment and win/draw
+detection are done. Remaining ideas: a challenge/accept handshake instead of an
+always-open board, and handling 3+ party members gracefully. New message types:
+extend `PartyMemberMessage`, register in the plugin's `startUp()` with
 `wsClient.registerMessage(...)`, receive via an `@Subscribe on<ClassName>` method.
 
 **Replace the placeholder icon:** put a 16x16ish `icon.png` under
