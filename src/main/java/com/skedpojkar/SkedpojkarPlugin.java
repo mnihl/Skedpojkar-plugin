@@ -79,7 +79,11 @@ public class SkedpojkarPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
-		clientToolbar.removeNavigation(navButton);
+		// navButton can be null if startUp failed partway through
+		if (navButton != null)
+		{
+			clientToolbar.removeNavigation(navButton);
+		}
 		wsClient.unregisterMessage(PartyGameMessage.class);
 		eventBus.unregister(announcementTriggers);
 		eventBus.unregister(partyTicTacToe);
