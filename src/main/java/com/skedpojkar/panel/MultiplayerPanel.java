@@ -1,6 +1,6 @@
-package com.corgifeatures.panel;
+package com.skedpojkar.panel;
 
-import com.corgifeatures.multiplayer.PartyTicTacToe;
+import com.skedpojkar.multiplayer.PartyTicTacToe;
 import java.awt.BorderLayout;
 import java.awt.Font;
 import java.awt.GridLayout;

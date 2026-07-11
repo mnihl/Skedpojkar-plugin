@@ -1,4 +1,4 @@
-package com.corgifeatures.panel;
+package com.skedpojkar.panel;
 
 import java.awt.Color;
 import java.awt.Dimension;

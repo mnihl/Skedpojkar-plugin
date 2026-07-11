@@ -1,6 +1,6 @@
-package com.corgifeatures.sound;
+package com.skedpojkar.sound;
 
-import com.corgifeatures.CorgiFeaturesConfig;
+import com.skedpojkar.SkedpojkarConfig;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -19,17 +19,17 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLite;
 
 /**
- * Plays .wav files dropped by the user into ~/.runelite/corgi-features-sounds.
+ * Plays .wav files dropped by the user into ~/.runelite/skedpojkar-sounds.
  * No sounds ship with the plugin yet; a missing file simply logs and does nothing.
  */
 @Slf4j
 @Singleton
 public class SoundEngine
 {
-	public static final File SOUND_DIR = new File(RuneLite.RUNELITE_DIR, "corgi-features-sounds");
+	public static final File SOUND_DIR = new File(RuneLite.RUNELITE_DIR, "skedpojkar-sounds");
 
 	@Inject
-	private CorgiFeaturesConfig config;
+	private SkedpojkarConfig config;
 
 	@Inject
 	private ScheduledExecutorService executor;
@@ -50,7 +50,7 @@ public class SoundEngine
 
 			StringBuilder sb = new StringBuilder()
 				.append("Drop .wav files with these exact names into this folder\n")
-				.append("to give Corgi's Various Features its sounds:\n\n");
+				.append("to give Skedpojkar its sounds:\n\n");
 			for (Sound sound : Sound.values())
 			{
 				for (String fileName : sound.getFileNames())

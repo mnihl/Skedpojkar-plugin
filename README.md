@@ -1,4 +1,4 @@
-# Corgi's Various Features
+# Skedpojkar
 
 A RuneLite plugin with a grab-bag of fun features: event announcements (chat + sound),
 side-panel minigames, and party-based multiplayer tic-tac-toe.
@@ -20,16 +20,16 @@ Reacts to in-game events with a local chat message (only you see it) and/or a so
 - Passing the Al Kharid toll gate
 
 Sounds are uncompressed PCM `.wav` files (a renamed `.mp3` won't play) you drop
-into `~/.runelite/corgi-features-sounds/`
-(on Windows: `C:\Users\<you>\.runelite\corgi-features-sounds\`). The folder and a
+into `~/.runelite/skedpojkar-sounds/`
+(on Windows: `C:\Users\<you>\.runelite\skedpojkar-sounds\`). The folder and a
 `README.txt` listing the expected file names are created automatically on first start.
 
 ### Side-panel minigames
-A sidebar button (orange "C" icon) opens a panel with tabs:
+A sidebar button (orange "S" icon) opens a panel with tabs:
 - **Cookies** — cookie clicker; the count persists between sessions
 - **TTT** — tic-tac-toe against a simple AI (win > block > center > random)
 - **Facts** — random facts from a built-in pool
-- **Party** — multiplayer tic-tac-toe (prototype, see below)
+- **Party** — multiplayer tic-tac-toe (see below)
 
 ### Party tic-tac-toe
 Both players run this plugin and join the same party via RuneLite's built-in
@@ -56,16 +56,16 @@ turns alternate, and wins/draws are detected. Designed for exactly 2 players.
 Prerequisites (already verified on this machine): JDK 11+, VS Code with the
 **Extension Pack for Java** installed.
 
-1. Open [CorgiFeaturesPluginTest.java](src/test/java/com/corgifeatures/CorgiFeaturesPluginTest.java)
+1. Open [SkedpojkarPluginTest.java](src/test/java/com/skedpojkar/SkedpojkarPluginTest.java)
    and click **Run** above its `main` method. A real RuneLite client opens with the
    plugin loaded. (Terminal alternative: `./gradlew build` only verifies compilation.)
 2. Log in, then work through this checklist:
-   - [ ] Orange "C" button appears in the RuneLite sidebar; panel opens with 4 tabs
+   - [ ] Orange "S" button appears in the RuneLite sidebar; panel opens with 4 tabs
    - [ ] Plugin appears in RuneLite settings; toggles and the target-players field save
    - [ ] Cookie count survives closing and reopening the client
    - [ ] TTT tab: AI plays back, win/draw is detected, New game resets
    - [ ] Gain a level (or use a lamp) → chat message appears
-   - [ ] `~/.runelite/corgi-features-sounds/` exists with its README.txt; drop any
+   - [ ] `~/.runelite/skedpojkar-sounds/` exists with its README.txt; drop any
          `.wav` in as `level_up.wav` and level up again → sound plays
    - [ ] Add a friend's RSN to target players; have them walk into view → message
    - [ ] Multiplayer: both of you install the plugin and join the same party
@@ -73,14 +73,14 @@ Prerequisites (already verified on this machine): JDK 11+, VS Code with the
          (small delay is normal: moves apply when the server echoes them back)
 
 If something misbehaves, logs are in `~/.runelite/logs/client.log` — the plugin
-logs under `com.corgifeatures`.
+logs under `com.skedpojkar`.
 
 ## Architecture / where to change things
 
 ```
-src/main/java/com/corgifeatures/
-├── CorgiFeaturesPlugin.java      # Entry point: wires everything up in startUp()/shutDown()
-├── CorgiFeaturesConfig.java      # Settings panel definition (each method = one setting)
+src/main/java/com/skedpojkar/
+├── SkedpojkarPlugin.java      # Entry point: wires everything up in startUp()/shutDown()
+├── SkedpojkarConfig.java      # Settings panel definition (each method = one setting)
 ├── announce/
 │   └── AnnouncementTriggers.java # Feature 1: @Subscribe event handlers → chat/sound
 ├── sound/
@@ -90,7 +90,7 @@ src/main/java/com/corgifeatures/
 │   ├── PartyGameMessage.java     # The message relayed between party members
 │   └── PartyTicTacToe.java       # Shared board state + party send/receive
 └── panel/
-    ├── CorgiFeaturesPanel.java   # The sidebar panel (tab container)
+    ├── SkedpojkarPanel.java   # The sidebar panel (tab container)
     └── *Panel.java               # One class per tab, plain Java Swing
 ```
 
@@ -108,7 +108,7 @@ for ready-made patterns.
 the sounds-folder README updates itself on next startup.
 
 **Add a new minigame tab:** create a `JPanel` subclass in `panel/` and add one
-`tabs.addTab(...)` line in `CorgiFeaturesPanel`. Persist state via `ConfigManager`
+`tabs.addTab(...)` line in `SkedpojkarPanel`. Persist state via `ConfigManager`
 like `CookieClickerPanel` does. Note: only touch Swing from the Swing thread —
 if reacting to game/party events, wrap UI updates in `SwingUtilities.invokeLater`
 (see `PartyTicTacToe.notifyBoardChanged`).
@@ -120,24 +120,10 @@ extend `PartyMemberMessage`, register in the plugin's `startUp()` with
 `wsClient.registerMessage(...)`, receive via an `@Subscribe on<ClassName>` method.
 
 **Replace the placeholder icon:** put a 16x16ish `icon.png` under
-`src/main/resources/com/corgifeatures/`, load it with
-`ImageUtil.loadImageResource(CorgiFeaturesPlugin.class, "icon.png")`, and delete
+`src/main/resources/com/skedpojkar/`, load it with
+`ImageUtil.loadImageResource(SkedpojkarPlugin.class, "icon.png")`, and delete
 `createIcon()`. A root-level `icon.png` (max 48x72) is also required for Plugin Hub
 submission.
 
 **Grow the facts pool:** edit the array in `FactsPanel`, or move it to a bundled
-resource file read via `getResourceAsStream`.
-
-## Rules note
-
-This plugin only reads game events, plays local sounds, prints local-only chat
-messages, and draws UI. It performs no input automation and never acts on the
-game — keep it that way for Plugin Hub eligibility.
-
-## Path to the Plugin Hub
-
-1. Test everything above in a live client
-2. Real icon, `LICENSE` file (BSD 2-Clause — required by the hub)
-3. Push to a public GitHub repo
-4. PR to [runelite/plugin-hub](https://github.com/runelite/plugin-hub) adding a
-   manifest with the repo URL + commit hash
+resource file read via `getResource

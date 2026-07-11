@@ -6,7 +6,7 @@ that aren't discoverable from the code.
 
 ## What this is
 
-A RuneLite plugin ("Corgi's Various Features") the owner is building to eventually
+A RuneLite plugin ("Skedpojkar") the owner is building to eventually
 publish to the public RuneLite Plugin Hub. Three features, all in an early but
 compiling/loading state: event announcements (chat + sound), side-panel minigames,
 and party-based multiplayer tic-tac-toe. See the README's "Current state" table for
@@ -37,7 +37,7 @@ what is real vs. barebones.
   verify-without-a-client check; use it after changes.
 - **Live client testing is now available.** The owner can run the plugin in a real
   RuneLite client: run the `main` method in
-  [CorgiFeaturesPluginTest.java](src/test/java/com/corgifeatures/CorgiFeaturesPluginTest.java)
+  [SkedpojkarPluginTest.java](src/test/java/com/skedpojkar/SkedpojkarPluginTest.java)
   from VS Code (Run button above `main`), which boots RuneLite with the plugin loaded.
   Earlier work predated this, so anything not yet confirmed in-game should be treated
   as untested — see the checklist in the README when validating behavior.

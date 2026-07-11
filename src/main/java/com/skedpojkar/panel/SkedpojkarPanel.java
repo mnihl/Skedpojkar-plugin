@@ -1,6 +1,6 @@
-package com.corgifeatures.panel;
+package com.skedpojkar.panel;
 
-import com.corgifeatures.multiplayer.PartyTicTacToe;
+import com.skedpojkar.multiplayer.PartyTicTacToe;
 import java.awt.BorderLayout;
 import javax.swing.JTabbedPane;
 import lombok.Getter;
@@ -10,12 +10,12 @@ import net.runelite.client.ui.PluginPanel;
 /**
  * The sidebar panel: one tab per minigame/feature.
  */
-public class CorgiFeaturesPanel extends PluginPanel
+public class SkedpojkarPanel extends PluginPanel
 {
 	@Getter
 	private final CookieClickerPanel cookieClickerPanel;
 
-	public CorgiFeaturesPanel(ConfigManager configManager, PartyTicTacToe partyTicTacToe)
+	public SkedpojkarPanel(ConfigManager configManager, PartyTicTacToe partyTicTacToe)
 	{
 		super(false);
 		setLayout(new BorderLayout());

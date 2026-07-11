@@ -1,4 +1,4 @@
-package com.corgifeatures.multiplayer;
+package com.skedpojkar.multiplayer;
 
 import lombok.EqualsAndHashCode;
 import lombok.Value;

@@ -1,6 +1,6 @@
-package com.corgifeatures.panel;
+package com.skedpojkar.panel;
 
-import com.corgifeatures.CorgiFeaturesConfig;
+import com.skedpojkar.SkedpojkarConfig;
 import java.awt.BorderLayout;
 import java.awt.Font;
 import javax.swing.BorderFactory;
@@ -60,11 +60,11 @@ public class CookieClickerPanel extends JPanel
 
 	private long loadCount()
 	{
-		String stored = configManager.getRSProfileConfiguration(CorgiFeaturesConfig.GROUP, COUNT_KEY);
+		String stored = configManager.getRSProfileConfiguration(SkedpojkarConfig.GROUP, COUNT_KEY);
 		if (stored == null)
 		{
 			// Not logged in yet, or this character has no count: fall back to the shared key
-			stored = configManager.getConfiguration(CorgiFeaturesConfig.GROUP, COUNT_KEY);
+			stored = configManager.getConfiguration(SkedpojkarConfig.GROUP, COUNT_KEY);
 		}
 		try
 		{
@@ -80,12 +80,12 @@ public class CookieClickerPanel extends JPanel
 	{
 		if (configManager.getRSProfileKey() != null)
 		{
-			configManager.setRSProfileConfiguration(CorgiFeaturesConfig.GROUP, COUNT_KEY, cookies);
+			configManager.setRSProfileConfiguration(SkedpojkarConfig.GROUP, COUNT_KEY, cookies);
 		}
 		else
 		{
 			// Logged out: keep the count in the shared key so it isn't lost
-			configManager.setConfiguration(CorgiFeaturesConfig.GROUP, COUNT_KEY, cookies);
+			configManager.setConfiguration(SkedpojkarConfig.GROUP, COUNT_KEY, cookies);
 		}
 	}
 

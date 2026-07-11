@@ -23,7 +23,7 @@ dependencies {
 	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
 }
 
-group = 'com.corgifeatures'
+group = 'com.skedpojkar'
 version = '0.1.0'
 
 tasks.withType(JavaCompile) {

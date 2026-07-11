@@ -1,10 +1,10 @@
-package com.corgifeatures.sound;
+package com.skedpojkar.sound;
 
 import java.util.Random;
 
 /**
  * Every sound the plugin can play, mapped to the .wav file name(s) expected in
- * the corgi-features-sounds folder. Entries with multiple file names play one
+ * the skedpojkar-sounds folder. Entries with multiple file names play one
  * at random. Missing files are skipped gracefully.
  */
 public enum Sound

@@ -1,4 +1,4 @@
-package com.corgifeatures.multiplayer;
+package com.skedpojkar.multiplayer;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;

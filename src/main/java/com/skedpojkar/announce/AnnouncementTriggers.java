@@ -1,8 +1,8 @@
-package com.corgifeatures.announce;
+package com.skedpojkar.announce;
 
-import com.corgifeatures.CorgiFeaturesConfig;
-import com.corgifeatures.sound.Sound;
-import com.corgifeatures.sound.SoundEngine;
+import com.skedpojkar.SkedpojkarConfig;
+import com.skedpojkar.sound.Sound;
+import com.skedpojkar.sound.SoundEngine;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
@@ -58,7 +58,7 @@ public class AnnouncementTriggers
 	private Client client;
 
 	@Inject
-	private CorgiFeaturesConfig config;
+	private SkedpojkarConfig config;
 
 	@Inject
 	private SoundEngine soundEngine;

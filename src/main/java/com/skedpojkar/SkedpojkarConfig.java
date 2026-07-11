@@ -1,4 +1,4 @@
-package com.corgifeatures;
+package com.skedpojkar;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
@@ -6,10 +6,10 @@ import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 import net.runelite.client.config.Range;
 
-@ConfigGroup(CorgiFeaturesConfig.GROUP)
-public interface CorgiFeaturesConfig extends Config
+@ConfigGroup(SkedpojkarConfig.GROUP)
+public interface SkedpojkarConfig extends Config
 {
-	String GROUP = "corgifeatures";
+	String GROUP = "skedpojkar";
 
 	@ConfigSection(
 		name = "Announcements",
@@ -160,7 +160,7 @@ public interface CorgiFeaturesConfig extends Config
 	@ConfigItem(
 		keyName = "soundsEnabled",
 		name = "Enable sounds",
-		description = "Play .wav sound files from the corgi-features-sounds folder in your .runelite directory",
+		description = "Play .wav sound files from the skedpojkar-sounds folder in your .runelite directory",
 		section = soundsSection,
 		position = 0
 	)

@@ -1,10 +1,10 @@
-package com.corgifeatures;
+package com.skedpojkar;
 
-import com.corgifeatures.announce.AnnouncementTriggers;
-import com.corgifeatures.multiplayer.PartyGameMessage;
-import com.corgifeatures.multiplayer.PartyTicTacToe;
-import com.corgifeatures.panel.CorgiFeaturesPanel;
-import com.corgifeatures.sound.SoundEngine;
+import com.skedpojkar.announce.AnnouncementTriggers;
+import com.skedpojkar.multiplayer.PartyGameMessage;
+import com.skedpojkar.multiplayer.PartyTicTacToe;
+import com.skedpojkar.panel.SkedpojkarPanel;
+import com.skedpojkar.sound.SoundEngine;
 import com.google.inject.Provides;
 import java.awt.Color;
 import java.awt.Font;
@@ -27,11 +27,11 @@ import net.runelite.client.ui.NavigationButton;
 
 @Slf4j
 @PluginDescriptor(
-	name = "Corgi's Various Features",
+	name = "Skedpojkar",
 	description = "Sounds and chat announcements for events and specific players, plus side-panel minigames and party tic-tac-toe",
 	tags = {"corgi", "sound", "announce", "minigame", "party", "fun"}
 )
-public class CorgiFeaturesPlugin extends Plugin
+public class SkedpojkarPlugin extends Plugin
 {
 	@Inject
 	private ClientToolbar clientToolbar;
@@ -57,7 +57,7 @@ public class CorgiFeaturesPlugin extends Plugin
 	@Inject
 	private PartyTicTacToe partyTicTacToe;
 
-	private CorgiFeaturesPanel panel;
+	private SkedpojkarPanel panel;
 	private NavigationButton navButton;
 
 	@Override
@@ -68,16 +68,16 @@ public class CorgiFeaturesPlugin extends Plugin
 		wsClient.registerMessage(PartyGameMessage.class);
 		executor.execute(soundEngine::init);
 
-		panel = new CorgiFeaturesPanel(configManager, partyTicTacToe);
+		panel = new SkedpojkarPanel(configManager, partyTicTacToe);
 		navButton = NavigationButton.builder()
-			.tooltip("Corgi's Various Features")
+			.tooltip("Skedpojkar")
 			.icon(createIcon())
 			.priority(7)
 			.panel(panel)
 			.build();
 		clientToolbar.addNavigation(navButton);
 
-		log.info("Corgi's Various Features started");
+		log.info("Skedpojkar started");
 	}
 
 	@Override
@@ -91,14 +91,14 @@ public class CorgiFeaturesPlugin extends Plugin
 		panel = null;
 		navButton = null;
 
-		log.info("Corgi's Various Features stopped");
+		log.info("Skedpojkar stopped");
 	}
 
 	/** The cookie count is stored per character, so re-read it when the character changes. */
 	@Subscribe
 	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
 	{
-		CorgiFeaturesPanel currentPanel = panel;
+		SkedpojkarPanel currentPanel = panel;
 		if (currentPanel != null)
 		{
 			SwingUtilities.invokeLater(currentPanel.getCookieClickerPanel()::refresh);
@@ -106,9 +106,9 @@ public class CorgiFeaturesPlugin extends Plugin
 	}
 
 	@Provides
-	CorgiFeaturesConfig provideConfig(ConfigManager configManager)
+	SkedpojkarConfig provideConfig(ConfigManager configManager)
 	{
-		return configManager.getConfig(CorgiFeaturesConfig.class);
+		return configManager.getConfig(SkedpojkarConfig.class);
 	}
 
 	// Drawn programmatically until the plugin has a real icon resource
@@ -121,7 +121,7 @@ public class CorgiFeaturesPlugin extends Plugin
 		g.fillRoundRect(0, 0, 16, 16, 6, 6);
 		g.setColor(Color.WHITE);
 		g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
-		g.drawString("C", 4, 13);
+		g.drawString("S", 4, 13);
 		g.dispose();
 		return image;
 	}
