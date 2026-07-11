@@ -5,7 +5,7 @@
             "type": "java",
             "name": "RuneLite with plugin",
             "request": "launch",
-            "mainClass": "com.corgifeatures.CorgiFeaturesPluginTest",
+            "mainClass": "com.skedpojkar.SkedpojkarPluginTest",
             "vmArgs": "-ea"
         }
     ]

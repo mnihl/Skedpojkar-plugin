@@ -48,7 +48,7 @@ turns alternate, and wins/draws are detected. Designed for exactly 2 players.
 | Tic-tac-toe vs AI | Fully working, verified in-game |
 | Facts | Working; pool is a hardcoded array |
 | Party tic-tac-toe | Working: consistent X/O (lowest party id is X), enforced turns, win/draw detection. Designed for exactly 2 players. |
-| Sidebar icon | Placeholder drawn in code, not a real image |
+| Sidebar icon | Real image (an orange spoon), loaded from resources |
 | In-game testing | Core features verified in a live client; not yet verified: Sepulchre/Gauntlet triggers, party TTT rule changes (turns/wins) |
 
 ## How to test (once you can run the client)
@@ -119,11 +119,9 @@ always-open board, and handling 3+ party members gracefully. New message types:
 extend `PartyMemberMessage`, register in the plugin's `startUp()` with
 `wsClient.registerMessage(...)`, receive via an `@Subscribe on<ClassName>` method.
 
-**Replace the placeholder icon:** put a 16x16ish `icon.png` under
-`src/main/resources/com/skedpojkar/`, load it with
-`ImageUtil.loadImageResource(SkedpojkarPlugin.class, "icon.png")`, and delete
-`createIcon()`. A root-level `icon.png` (max 48x72) is also required for Plugin Hub
-submission.
+**Change the icon:** the spoon is `icon.svg` at the repo root; regenerate the
+PNGs from it (16x16 to `src/main/resources/com/skedpojkar/icon.png` for the
+sidebar, 48x48 root-level `icon.png` for the Plugin Hub listing).
 
 **Grow the facts pool:** edit the array in `FactsPanel`, or move it to a bundled
 resource file read via `getResource

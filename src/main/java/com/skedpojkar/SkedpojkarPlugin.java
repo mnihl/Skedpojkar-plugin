@@ -6,11 +6,6 @@ import com.skedpojkar.multiplayer.PartyTicTacToe;
 import com.skedpojkar.panel.SkedpojkarPanel;
 import com.skedpojkar.sound.SoundEngine;
 import com.google.inject.Provides;
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
@@ -24,6 +19,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.ImageUtil;
 
 @Slf4j
 @PluginDescriptor(
@@ -71,7 +67,7 @@ public class SkedpojkarPlugin extends Plugin
 		panel = new SkedpojkarPanel(configManager, partyTicTacToe);
 		navButton = NavigationButton.builder()
 			.tooltip("Skedpojkar")
-			.icon(createIcon())
+			.icon(ImageUtil.loadImageResource(SkedpojkarPlugin.class, "icon.png"))
 			.priority(7)
 			.panel(panel)
 			.build();
@@ -109,20 +105,5 @@ public class SkedpojkarPlugin extends Plugin
 	SkedpojkarConfig provideConfig(ConfigManager configManager)
 	{
 		return configManager.getConfig(SkedpojkarConfig.class);
-	}
-
-	// Drawn programmatically until the plugin has a real icon resource
-	private BufferedImage createIcon()
-	{
-		BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D g = image.createGraphics();
-		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g.setColor(new Color(222, 143, 62));
-		g.fillRoundRect(0, 0, 16, 16, 6, 6);
-		g.setColor(Color.WHITE);
-		g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
-		g.drawString("S", 4, 13);
-		g.dispose();
-		return image;
 	}
 }
