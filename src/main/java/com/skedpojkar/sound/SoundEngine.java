@@ -9,18 +9,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
-import javax.sound.sampled.FloatControl;
-import javax.sound.sampled.LineEvent;
-import javax.sound.sampled.UnsupportedAudioFileException;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLite;
+import net.runelite.client.audio.AudioPlayer;
 
 /**
  * Plays .wav files dropped by the user into ~/.runelite/skedpojkar-sounds.
- * No sounds ship with the plugin yet; a missing file simply logs and does nothing.
+ * No sounds ship with the plugin; a missing file simply logs and does nothing.
+ * Playback goes through RuneLite's {@link AudioPlayer} (required for the Plugin Hub).
  */
 @Slf4j
 @Singleton
@@ -33,6 +29,9 @@ public class SoundEngine
 
 	@Inject
 	private ScheduledExecutorService executor;
+
+	@Inject
+	private AudioPlayer audioPlayer;
 
 	/**
 	 * Creates the sound folder and drops a readme explaining which file names are used.
@@ -90,43 +89,20 @@ public class SoundEngine
 			return;
 		}
 
-		try (AudioInputStream stream = AudioSystem.getAudioInputStream(file))
+		// The 0-100 volume setting as a decibel gain: 100 -> 0 dB, 50 -> ~-6 dB, 25 -> ~-12 dB
+		float gain = (float) (20.0 * Math.log10(config.soundVolume() / 100.0));
+
+		// Deliberately broad catch: naming javax.sound exception types is itself
+		// disallowed by the Plugin Hub's api scan
+		try
 		{
-			Clip clip = AudioSystem.getClip();
-			clip.open(stream);
-			setVolume(clip);
-			clip.addLineListener(event ->
-			{
-				if (event.getType() == LineEvent.Type.STOP)
-				{
-					clip.close();
-				}
-			});
-			clip.start();
-		}
-		catch (UnsupportedAudioFileException e)
-		{
-			log.warn("{} is not a playable .wav file. Java only plays uncompressed PCM wavs — "
-				+ "convert it (e.g. Audacity: Export as WAV, signed 16-bit PCM). "
-				+ "Renaming an .mp3 to .wav is not enough.", file.getName());
+			audioPlayer.play(file, gain);
 		}
 		catch (Exception e)
 		{
-			log.warn("Failed to play sound {}", sound, e);
-		}
-	}
-
-	private void setVolume(Clip clip)
-	{
-		try
-		{
-			FloatControl gain = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-			float db = (float) (20.0 * Math.log10(config.soundVolume() / 100.0));
-			gain.setValue(Math.max(gain.getMinimum(), Math.min(gain.getMaximum(), db)));
-		}
-		catch (IllegalArgumentException e)
-		{
-			log.debug("Volume control not supported for this clip", e);
+			log.warn("Failed to play {}. Only uncompressed PCM .wav files play — renaming an"
+				+ " .mp3 to .wav is not enough; convert it (e.g. Audacity: Export as WAV,"
+				+ " signed 16-bit PCM).", file.getName(), e);
 		}
 	}
 }
