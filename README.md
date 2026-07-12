@@ -11,18 +11,43 @@ see [Current state](#current-state-whats-real-whats-barebones) before judging it
 ### Announcements (sounds + chat messages)
 Reacts to in-game events with a local chat message (only you see it) and/or a sound:
 - Your level-ups and deaths (death picks randomly between two sound files)
-- A **target player** appearing nearby, dying, or talking in public chat.
-  Target usernames are typed into the plugin settings (comma-separated), so no
-  names are ever hardcoded in this public repo.
+- Clan broadcasts: a member's PvP kill, death, or drop (matched by broadcast
+  type only — RuneLite rejects player-targeted triggers, so nothing here keys
+  on specific player names)
+- Anyone talking in your clan or friends channel (off by default; noisy)
 - PvP: hitting a 0 on another player (30% chance), and killing a player
   (a player you recently damaged dies; sound plays 2 s later)
 - Completing Floor 5 of the Hallowed Sepulchre or the Corrupted Gauntlet
 - Passing the Al Kharid toll gate
 
-Sounds are uncompressed PCM `.wav` files (a renamed `.mp3` won't play) you drop
+Ready-made sounds live in this repo's [`sounds/`](sounds/) folder — copy its
+contents into your sounds folder to get started. Sounds are uncompressed PCM
+`.wav` files (a renamed `.mp3` won't play) you drop
 into `~/.runelite/skedpojkar-sounds/`
 (on Windows: `C:\Users\<you>\.runelite\skedpojkar-sounds\`). The folder and a
 `README.txt` listing the expected file names are created automatically on first start.
+
+### Trigger reference
+
+| Trigger | How it fires | Output | Toggle (default) |
+|---|---|---|---|
+| Level-up | `StatChanged`: a skill's level exceeds its post-login baseline | Chat message + `level_up.wav` | on |
+| Your death | `ActorDeath` of your own player | Chat message + random pick of `own_death_1.wav` / `own_death_2.wav` | on |
+| Clan PvP-kill broadcast | `CLAN_MESSAGE` containing "has defeated" (death phrases checked first) | `clan_kill.wav` | on |
+| Clan death broadcast | `CLAN_MESSAGE` containing "has been defeated by" or "has died" | `clan_death.wav` | on |
+| Clan drop broadcast | `CLAN_MESSAGE` containing "received a drop" | `clan_drop.wav` | on |
+| Clan/friends chat activity | Any `CLAN_CHAT` or `FRIENDSCHAT` message | `clan_chat.wav` | off (noisy) |
+| PvP zero hit | `HitsplatApplied`: your hitsplat, on a player, amount 0, 30% chance | `pvp_zero_hit.wav` | on |
+| PvP kill | `ActorDeath` of a player you hitsplat within the last 5 s | `pvp_kill.wav`, played 2 s later | on |
+| Sepulchre floor 5 | Game message starting "You have completed Floor 5 of the Hallowed Sepulchre" | `sepulchre_floor_5.wav` | on |
+| Al Kharid gate | `GameTick`: position crosses the gate's fence line (x=3268) | `good_job.wav` | on (shared toggle) |
+| Corrupted Gauntlet | Game message starting "Corrupted challenge duration" | `good_job.wav` | on (shared toggle) |
+
+Global switches: "Show chat messages", "Enable sounds", volume (default 25).
+Chat messages exist only for level-up and own death; the rest are sound-only.
+A missing `.wav` means that trigger is simply silent. The repo's `sounds/`
+folder currently has no files for `level_up`, `clan_kill`, `clan_death`, or
+`clan_drop`.
 
 ### Side-panel minigames
 A sidebar button (orange "S" icon) opens a panel with tabs:
@@ -41,7 +66,7 @@ turns alternate, and wins/draws are detected. Designed for exactly 2 players.
 
 | Area | Status |
 |---|---|
-| Event triggers (level-up, death, targets, PvP, Sepulchre, Gauntlet, Al Kharid gate) | Working; verified in a live client except Sepulchre/Gauntlet completions (message matching in place, wordings confirmed) |
+| Event triggers (level-up, death, clan broadcasts, PvP, Sepulchre, Gauntlet, Al Kharid gate) | Working; verified in a live client except Sepulchre/Gauntlet completions and clan broadcasts (broadcast phrases are best-guess — verify in-game) |
 | Chat announcements | Working, verified in-game |
 | Sound playback | Working, verified in-game — but **no sound files ship with the plugin**; silent until you drop PCM `.wav`s in the sounds folder. Missing files are skipped with only a debug log; unsupported formats log an explanation. |
 | Cookie clicker | Working; count persists per character |
@@ -61,13 +86,14 @@ Prerequisites (already verified on this machine): JDK 11+, VS Code with the
    plugin loaded. (Terminal alternative: `./gradlew build` only verifies compilation.)
 2. Log in, then work through this checklist:
    - [ ] Orange "S" button appears in the RuneLite sidebar; panel opens with 4 tabs
-   - [ ] Plugin appears in RuneLite settings; toggles and the target-players field save
+   - [ ] Plugin appears in RuneLite settings; toggles save
    - [ ] Cookie count survives closing and reopening the client
    - [ ] TTT tab: AI plays back, win/draw is detected, New game resets
    - [ ] Gain a level (or use a lamp) → chat message appears
    - [ ] `~/.runelite/skedpojkar-sounds/` exists with its README.txt; drop any
          `.wav` in as `level_up.wav` and level up again → sound plays
-   - [ ] Add a friend's RSN to target players; have them walk into view → message
+   - [ ] Join a clan with broadcasts on; wait for a kill/death/drop broadcast → sound
+         (drop `clan_kill.wav` / `clan_death.wav` / `clan_drop.wav` in the sounds folder)
    - [ ] Multiplayer: both of you install the plugin and join the same party
          (Party plugin → same passphrase) → moves appear on both screens
          (small delay is normal: moves apply when the server echoes them back)

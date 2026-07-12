@@ -26,18 +26,6 @@ public interface SkedpojkarConfig extends Config
 	String soundsSection = "sounds";
 
 	@ConfigItem(
-		keyName = "targetPlayers",
-		name = "Target players",
-		description = "Comma-separated usernames to watch for (e.g. 'Zezima, Cow31337Killer'). Leave empty to disable player-specific triggers.",
-		section = announcementsSection,
-		position = 0
-	)
-	default String targetPlayers()
-	{
-		return "";
-	}
-
-	@ConfigItem(
 		keyName = "chatMessagesEnabled",
 		name = "Show chat messages",
 		description = "Print announcement messages in your chatbox (only you can see them)",
@@ -74,37 +62,49 @@ public interface SkedpojkarConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "announceTargetSpawns",
-		name = "Announce target appearing",
-		description = "Trigger when a target player comes into view",
+		keyName = "clanKillSound",
+		name = "Sound on clan PvP kill broadcast",
+		description = "Play a sound when your clan broadcasts that a member defeated another player",
 		section = announcementsSection,
 		position = 4
 	)
-	default boolean announceTargetSpawns()
+	default boolean clanKillSound()
 	{
 		return true;
 	}
 
 	@ConfigItem(
-		keyName = "announceTargetDeaths",
-		name = "Announce target dying",
-		description = "Trigger when a target player dies near you",
+		keyName = "clanDeathSound",
+		name = "Sound on clan death broadcast",
+		description = "Play a sound when your clan broadcasts that a member died",
 		section = announcementsSection,
 		position = 5
 	)
-	default boolean announceTargetDeaths()
+	default boolean clanDeathSound()
 	{
 		return true;
 	}
 
 	@ConfigItem(
-		keyName = "targetChatSound",
-		name = "Sound on target chat",
-		description = "Play a sound when a target player says something in public chat",
+		keyName = "clanDropSound",
+		name = "Sound on clan drop broadcast",
+		description = "Play a sound when your clan broadcasts that a member received a drop",
 		section = announcementsSection,
 		position = 6
 	)
-	default boolean targetChatSound()
+	default boolean clanDropSound()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "clanChatSound",
+		name = "Sound on clan/friends chat",
+		description = "Play a sound whenever anyone talks in your clan or friends channel (can be noisy)",
+		section = announcementsSection,
+		position = 7
+	)
+	default boolean clanChatSound()
 	{
 		return false;
 	}
@@ -114,7 +114,7 @@ public interface SkedpojkarConfig extends Config
 		name = "Sound on PvP zero hit",
 		description = "30% chance to play a sound when you hit a 0 on another player",
 		section = announcementsSection,
-		position = 7
+		position = 8
 	)
 	default boolean pvpZeroHitSound()
 	{
@@ -126,7 +126,7 @@ public interface SkedpojkarConfig extends Config
 		name = "Sound on PvP kill",
 		description = "Play a sound (2s delayed) when a player you recently damaged dies",
 		section = announcementsSection,
-		position = 8
+		position = 9
 	)
 	default boolean pvpKillSound()
 	{
@@ -138,7 +138,7 @@ public interface SkedpojkarConfig extends Config
 		name = "Sound on Sepulchre floor V",
 		description = "Play a sound when you complete the highest floor of the Hallowed Sepulchre",
 		section = announcementsSection,
-		position = 9
+		position = 10
 	)
 	default boolean sepulchreSound()
 	{
@@ -150,7 +150,7 @@ public interface SkedpojkarConfig extends Config
 		name = "Sound on gate/Gauntlet",
 		description = "Play a sound when you pass the Al Kharid gate or complete the Corrupted Gauntlet",
 		section = announcementsSection,
-		position = 10
+		position = 11
 	)
 	default boolean goodJobSound()
 	{

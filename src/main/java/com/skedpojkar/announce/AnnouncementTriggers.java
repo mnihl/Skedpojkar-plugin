@@ -22,22 +22,21 @@ import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
-import net.runelite.api.events.PlayerSpawned;
 import net.runelite.api.events.StatChanged;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.util.Text;
 
 /**
- * Feature 1: reacts to in-game events with local chat messages and sounds,
- * optionally scoped to specific usernames from config.
+ * Feature 1: reacts to in-game events with local chat messages and sounds.
+ *
+ * Triggers are keyed by event/message type only, never by player name —
+ * player-targeted triggers are rejected by RuneLite (generic player
+ * highlighting, see the Rejected-or-Rolled-Back-Features wiki page).
  */
 @Slf4j
 @Singleton
 public class AnnouncementTriggers
 {
-	// A target walking in and out of render distance would otherwise re-trigger constantly
-	private static final long SPAWN_COOLDOWN_MS = 10_000L;
-
 	// PvP kill attribution: the API has no "you killed X" event, so we count a kill
 	// as ours if we landed a hitsplat on the player within this window before death.
 	private static final long KILL_ATTRIBUTION_WINDOW_MS = 5_000L;
@@ -54,6 +53,13 @@ public class AnnouncementTriggers
 	private static final String SEPULCHRE_FLOOR_5_MESSAGE = "You have completed Floor 5 of the Hallowed Sepulchre";
 	private static final String GAUNTLET_MESSAGE = "Corrupted challenge duration";
 
+	// Clan broadcast phrases. TODO verify against real broadcasts in-game; clans
+	// only broadcast the event types enabled in their clan settings.
+	private static final String CLAN_DEATH_PHRASE = "has been defeated by";
+	private static final String CLAN_DEATH_PHRASE_2 = "has died";
+	private static final String CLAN_KILL_PHRASE = "has defeated";
+	private static final String CLAN_DROP_PHRASE = "received a drop";
+
 	@Inject
 	private Client client;
 
@@ -64,7 +70,6 @@ public class AnnouncementTriggers
 	private SoundEngine soundEngine;
 
 	private final Map<Skill, Integer> previousLevels = new EnumMap<>(Skill.class);
-	private final Map<String, Long> lastSpawnAnnounce = new HashMap<>();
 	private final Map<String, Long> lastPvpHit = new HashMap<>();
 	private final Random random = new Random();
 
@@ -76,7 +81,6 @@ public class AnnouncementTriggers
 		if (event.getGameState() == GameState.LOGGING_IN)
 		{
 			previousLevels.clear();
-			lastSpawnAnnounce.clear();
 			lastPvpHit.clear();
 			lastTickPosition = null;
 		}
@@ -94,28 +98,6 @@ public class AnnouncementTriggers
 
 		announce("Level up: " + event.getSkill().getName() + " is now " + event.getLevel() + ". The corgi approves.");
 		soundEngine.play(Sound.LEVEL_UP);
-	}
-
-	@Subscribe
-	public void onPlayerSpawned(PlayerSpawned event)
-	{
-		Player player = event.getPlayer();
-		if (player == client.getLocalPlayer() || !config.announceTargetSpawns() || !isTarget(player.getName()))
-		{
-			return;
-		}
-
-		String key = Text.standardize(player.getName());
-		long now = System.currentTimeMillis();
-		Long last = lastSpawnAnnounce.get(key);
-		if (last != null && now - last < SPAWN_COOLDOWN_MS)
-		{
-			return;
-		}
-		lastSpawnAnnounce.put(key, now);
-
-		announce(player.getName() + " has appeared!");
-		soundEngine.play(Sound.TARGET_SPAWNED);
 	}
 
 	/**
@@ -175,33 +157,61 @@ public class AnnouncementTriggers
 		{
 			soundEngine.play(Sound.PVP_KILL, PVP_KILL_SOUND_DELAY_MS);
 		}
-
-		if (config.announceTargetDeaths() && isTarget(player.getName()))
-		{
-			announce(player.getName() + " has died!");
-			soundEngine.play(Sound.TARGET_DEATH);
-		}
 	}
 
 	@Subscribe
 	public void onChatMessage(ChatMessage event)
 	{
-		if (event.getType() == ChatMessageType.PUBLICCHAT && config.targetChatSound() && isTarget(event.getName()))
-		{
-			soundEngine.play(Sound.TARGET_CHAT);
-		}
+		String message = Text.removeTags(event.getMessage());
 
-		if (event.getType() == ChatMessageType.GAMEMESSAGE)
+		switch (event.getType())
 		{
-			String message = Text.removeTags(event.getMessage());
-			if (config.sepulchreSound() && message.startsWith(SEPULCHRE_FLOOR_5_MESSAGE))
-			{
-				soundEngine.play(Sound.SEPULCHRE_FLOOR_5);
-			}
-			else if (config.goodJobSound() && message.startsWith(GAUNTLET_MESSAGE))
-			{
-				soundEngine.play(Sound.GOOD_JOB);
-			}
+			case GAMEMESSAGE:
+				if (config.sepulchreSound() && message.startsWith(SEPULCHRE_FLOOR_5_MESSAGE))
+				{
+					soundEngine.play(Sound.SEPULCHRE_FLOOR_5);
+				}
+				else if (config.goodJobSound() && message.startsWith(GAUNTLET_MESSAGE))
+				{
+					soundEngine.play(Sound.GOOD_JOB);
+				}
+				break;
+
+			// System broadcasts in the clan channel (kills, deaths, drops, ...).
+			// Matched by broadcast type only — never by who is mentioned.
+			case CLAN_MESSAGE:
+				handleClanBroadcast(message);
+				break;
+
+			// Any member talking in the clan or friends channel
+			case CLAN_CHAT:
+			case FRIENDSCHAT:
+				if (config.clanChatSound())
+				{
+					soundEngine.play(Sound.CLAN_CHAT);
+				}
+				break;
+
+			default:
+				break;
+		}
+	}
+
+	private void handleClanBroadcast(String message)
+	{
+		// Deaths first: "X has been defeated by Y" must not match the kill phrase
+		if (config.clanDeathSound()
+			&& (message.contains(CLAN_DEATH_PHRASE) || message.contains(CLAN_DEATH_PHRASE_2)))
+		{
+			soundEngine.play(Sound.CLAN_DEATH);
+		}
+		else if (config.clanKillSound() && message.contains(CLAN_KILL_PHRASE))
+		{
+			soundEngine.play(Sound.CLAN_KILL);
+		}
+		else if (config.clanDropSound() && message.contains(CLAN_DROP_PHRASE))
+		{
+			soundEngine.play(Sound.CLAN_DROP);
 		}
 	}
 
@@ -236,23 +246,6 @@ public class AnnouncementTriggers
 		{
 			soundEngine.play(Sound.GOOD_JOB);
 		}
-	}
-
-	private boolean isTarget(String name)
-	{
-		if (name == null)
-		{
-			return false;
-		}
-		String standardized = Text.standardize(name);
-		for (String target : Text.fromCSV(config.targetPlayers()))
-		{
-			if (Text.standardize(target).equals(standardized))
-			{
-				return true;
-			}
-		}
-		return false;
 	}
 
 	private void announce(String message)

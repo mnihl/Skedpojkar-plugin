@@ -11,10 +11,10 @@ public enum Sound
 {
 	LEVEL_UP("level_up.wav"),
 	OWN_DEATH("own_death_1.wav", "own_death_2.wav"),
-	TARGET_SPAWNED("friend_spawned.wav"),
-	TARGET_DEATH("friend_death.wav"),
-	TARGET_CHAT("friend_chat.wav"),
-	// Triggers for these are not implemented yet — see SOUND_PLAN.md
+	CLAN_KILL("clan_kill.wav"),
+	CLAN_DEATH("clan_death.wav"),
+	CLAN_DROP("clan_drop.wav"),
+	CLAN_CHAT("clan_chat.wav"),
 	PVP_ZERO_HIT("pvp_zero_hit.wav"),
 	PVP_KILL("pvp_kill.wav"),
 	SEPULCHRE_FLOOR_5("sepulchre_floor_5.wav"),
