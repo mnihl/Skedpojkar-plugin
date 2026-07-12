@@ -20,12 +20,13 @@ Reacts to in-game events with a local chat message (only you see it) and/or a so
 - Completing Floor 5 of the Hallowed Sepulchre or the Corrupted Gauntlet
 - Passing the Al Kharid toll gate
 
-Ready-made sounds live in this repo's [`sounds/`](sounds/) folder — copy its
-contents into your sounds folder to get started. Sounds are uncompressed PCM
-`.wav` files (a renamed `.mp3` won't play) you drop
-into `~/.runelite/skedpojkar-sounds/`
-(on Windows: `C:\Users\<you>\.runelite\skedpojkar-sounds\`). The folder and a
-`README.txt` listing the expected file names are created automatically on first start.
+Sounds are bundled with the plugin and work out of the box (they live in
+`src/main/resources/com/skedpojkar/sound/`). To override any sound — or add one
+for a trigger that ships without — drop an uncompressed PCM `.wav` (a renamed
+`.mp3` won't play) with the same file name into `~/.runelite/skedpojkar-sounds/`
+(on Windows: `C:\Users\<you>\.runelite\skedpojkar-sounds\`); user files always
+take precedence. The folder and a `README.txt` listing the expected file names
+are created automatically on first start.
 
 ### Trigger reference
 
@@ -45,9 +46,8 @@ into `~/.runelite/skedpojkar-sounds/`
 
 Global switches: "Show chat messages", "Enable sounds", volume (default 25).
 Chat messages exist only for level-up and own death; the rest are sound-only.
-A missing `.wav` means that trigger is simply silent. The repo's `sounds/`
-folder currently has no files for `level_up`, `clan_kill`, `clan_death`, or
-`clan_drop`.
+A trigger with no bundled sound and no user file is simply silent — currently
+`level_up`, `clan_kill`, `clan_death`, and `clan_drop` ship without one.
 
 ### Side-panel minigames
 A sidebar button (orange "S" icon) opens a panel with tabs:
@@ -68,7 +68,7 @@ turns alternate, and wins/draws are detected. Designed for exactly 2 players.
 |---|---|
 | Event triggers (level-up, death, clan broadcasts, PvP, Sepulchre, Gauntlet, Al Kharid gate) | Working; verified in a live client except Sepulchre/Gauntlet completions and clan broadcasts (broadcast phrases are best-guess — verify in-game) |
 | Chat announcements | Working, verified in-game |
-| Sound playback | Working, verified in-game — but **no sound files ship with the plugin**; silent until you drop PCM `.wav`s in the sounds folder. Missing files are skipped with only a debug log; unsupported formats log an explanation. |
+| Sound playback | Working, verified in-game. Sounds are bundled in the jar; user files in the sounds folder override them (bundled fallback not yet verified in-game). Triggers with no sound at all are skipped with a debug log; unsupported formats log an explanation. |
 | Cookie clicker | Working; count persists per character |
 | Tic-tac-toe vs AI | Fully working, verified in-game |
 | Facts | Working; pool is a hardcoded array |
