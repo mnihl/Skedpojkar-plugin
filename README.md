@@ -1,153 +1,147 @@
 # Skedpojkar
 
-A RuneLite plugin with a grab-bag of fun features: event announcements (chat + sound),
-side-panel minigames, and party-based multiplayer tic-tac-toe.
+Fun sounds and minigames for you and your clanmates: sound/chat announcements
+for in-game events, side-panel minigames, and party-based multiplayer
+tic-tac-toe.
 
-Everything compiles and loads, but several parts are deliberately barebones —
-see [Current state](#current-state-whats-real-whats-barebones) before judging it. :)
+## Installation
+
+Install RuneLite, open the Configuration sidebar (wrench icon), click
+**Plugin Hub** at the top of the plugin list, and search for **Skedpojkar**.
 
 ## Features
 
 ### Announcements (sounds + chat messages)
-Reacts to in-game events with a local chat message (only you see it) and/or a sound:
-- Your level-ups and deaths (death picks randomly between two sound files)
-- Clan broadcasts: a member's PvP kill, death, or drop (matched by broadcast
-  type only — RuneLite rejects player-targeted triggers, so nothing here keys
-  on specific player names)
-- Anyone talking in your clan or friends channel (off by default; noisy)
-- PvP: hitting a 0 on another player (30% chance), and killing a player
-  (a player you recently damaged dies; sound plays 2 s later)
-- Completing Floor 5 of the Hallowed Sepulchre or the Corrupted Gauntlet
-- Passing the Al Kharid toll gate
 
-Sounds are bundled with the plugin and work out of the box (they live in
-`src/main/resources/com/skedpojkar/sound/`). To override any sound — or add one
-for a trigger that ships without — drop an uncompressed PCM `.wav` (a renamed
-`.mp3` won't play) with the same file name into `~/.runelite/skedpojkar-sounds/`
-(on Windows: `C:\Users\<you>\.runelite\skedpojkar-sounds\`); user files always
-take precedence. The folder and a `README.txt` listing the expected file names
-are created automatically on first start.
+Reacts to in-game events with a sound and/or a local chat message (only you
+see it). Every trigger has its own toggle in the plugin settings:
 
-### Trigger reference
+| Trigger | Sound file | Default |
+|---|---|---|
+| You level up | `level_up.wav` | on |
+| You die | `own_death_1.wav` / `own_death_2.wav` (random pick) | on |
+| Clan broadcast: a member's PvP kill | `clan_kill.wav` | on |
+| Clan broadcast: a member died | `clan_death.wav` | on |
+| Clan broadcast: a member got a drop | `clan_drop.wav` | on |
+| Anyone talks in your clan/friends channel | `clan_chat.wav` | off (noisy) |
+| You hit a 0 on another player (30% chance) | `pvp_zero_hit.wav` | on |
+| You kill a player (plays 2 s after) | `pvp_kill.wav` | on |
+| You complete Floor 5 of the Hallowed Sepulchre | `sepulchre_floor_5.wav` | on |
+| You pass the Al Kharid toll gate | `good_job.wav` | on |
+| You complete the Corrupted Gauntlet | `good_job.wav` | on |
 
-| Trigger | How it fires | Output | Toggle (default) |
-|---|---|---|---|
-| Level-up | `StatChanged`: a skill's level exceeds its post-login baseline | Chat message + `level_up.wav` | on |
-| Your death | `ActorDeath` of your own player | Chat message + random pick of `own_death_1.wav` / `own_death_2.wav` | on |
-| Clan PvP-kill broadcast | `CLAN_MESSAGE` containing "has defeated" (death phrases checked first) | `clan_kill.wav` | on |
-| Clan death broadcast | `CLAN_MESSAGE` containing "has been defeated by" or "has died" | `clan_death.wav` | on |
-| Clan drop broadcast | `CLAN_MESSAGE` containing "received a drop" | `clan_drop.wav` | on |
-| Clan/friends chat activity | Any `CLAN_CHAT` or `FRIENDSCHAT` message | `clan_chat.wav` | off (noisy) |
-| PvP zero hit | `HitsplatApplied`: your hitsplat, on a player, amount 0, 30% chance | `pvp_zero_hit.wav` | on |
-| PvP kill | `ActorDeath` of a player you hitsplat within the last 5 s | `pvp_kill.wav`, played 2 s later | on |
-| Sepulchre floor 5 | Game message starting "You have completed Floor 5 of the Hallowed Sepulchre" | `sepulchre_floor_5.wav` | on |
-| Al Kharid gate | `GameTick`: position crosses the gate's fence line (x=3268) | `good_job.wav` | on (shared toggle) |
-| Corrupted Gauntlet | Game message starting "Corrupted challenge duration" | `good_job.wav` | on (shared toggle) |
+Level-up and your own death also print a chat message; the rest are sound-only.
+Clan triggers match the *type* of broadcast, never specific player names.
+Global settings: chat messages on/off, sounds on/off, volume (default 25).
 
-Global switches: "Show chat messages", "Enable sounds", volume (default 25).
-Chat messages exist only for level-up and own death; the rest are sound-only.
-A trigger with no bundled sound and no user file is simply silent — currently
-`level_up`, `clan_kill`, `clan_death`, and `clan_drop` ship without one.
+**Custom sounds:** all sounds are bundled and work out of the box. To replace
+one (or add one for a trigger that ships without a sound — currently
+`level_up`, `clan_kill`, `clan_death` and `clan_drop`), drop a `.wav` file with
+that name into `~/.runelite/skedpojkar-sounds/` (Windows:
+`C:\Users\<you>\.runelite\skedpojkar-sounds\`). Your files always take
+precedence over the bundled ones. Files must be uncompressed PCM `.wav` — a
+renamed `.mp3` will not play. The folder and a `README.txt` listing the file
+names are created automatically on first start.
 
 ### Side-panel minigames
-A sidebar button (orange "S" icon) opens a panel with tabs:
-- **Cookies** — cookie clicker; the count persists between sessions
+
+A sidebar button (orange spoon) opens a panel with tabs:
+
+- **Cookies** — cookie clicker; the count is saved per character
 - **TTT** — tic-tac-toe against a simple AI (win > block > center > random)
 - **Facts** — random facts from a built-in pool
 - **Party** — multiplayer tic-tac-toe (see below)
 
 ### Party tic-tac-toe
-Both players run this plugin and join the same party via RuneLite's built-in
-**Party plugin** (same passphrase). Moves are relayed over RuneLite's official
-party websocket. The member with the lowest party id is X and moves first,
+
+Play tic-tac-toe with a friend through the game client: both players install
+this plugin and join the same party via RuneLite's built-in **Party plugin**
+(same passphrase). The member with the lowest party id is X and moves first,
 turns alternate, and wins/draws are detected. Designed for exactly 2 players.
+Moves are relayed over RuneLite's official party websocket; a short delay
+before your own move appears is normal.
 
-## Current state: what's real, what's barebones
+## Privacy & rules
 
-| Area | Status |
-|---|---|
-| Event triggers (level-up, death, clan broadcasts, PvP, Sepulchre, Gauntlet, Al Kharid gate) | Working; verified in a live client except Sepulchre/Gauntlet completions and clan broadcasts (broadcast phrases are best-guess — verify in-game) |
-| Chat announcements | Working, verified in-game |
-| Sound playback | Working, verified in-game. Sounds are bundled in the jar; user files in the sounds folder override them (bundled fallback not yet verified in-game). Triggers with no sound at all are skipped with a debug log; unsupported formats log an explanation. |
-| Cookie clicker | Working; count persists per character |
-| Tic-tac-toe vs AI | Fully working, verified in-game |
-| Facts | Working; pool is a hardcoded array |
-| Party tic-tac-toe | Working: consistent X/O (lowest party id is X), enforced turns, win/draw detection. Designed for exactly 2 players. |
-| Sidebar icon | Real image (an orange spoon), loaded from resources |
-| In-game testing | Core features verified in a live client; not yet verified: Sepulchre/Gauntlet triggers, party TTT rule changes (turns/wins) |
+This plugin only reads game events, plays local sounds, prints local-only chat
+messages, and draws UI. It performs no input automation and never acts on the
+game. No triggers key on specific player names — clan announcements react to
+broadcast types only, in channels you are a member of.
 
-## How to test (once you can run the client)
+---
 
-Prerequisites (already verified on this machine): JDK 11+, VS Code with the
-**Extension Pack for Java** installed.
+## Development
 
-1. Open [SkedpojkarPluginTest.java](src/test/java/com/skedpojkar/SkedpojkarPluginTest.java)
-   and click **Run** above its `main` method. A real RuneLite client opens with the
-   plugin loaded. (Terminal alternative: `./gradlew build` only verifies compilation.)
-2. Log in, then work through this checklist:
-   - [ ] Orange "S" button appears in the RuneLite sidebar; panel opens with 4 tabs
-   - [ ] Plugin appears in RuneLite settings; toggles save
-   - [ ] Cookie count survives closing and reopening the client
-   - [ ] TTT tab: AI plays back, win/draw is detected, New game resets
-   - [ ] Gain a level (or use a lamp) → chat message appears
-   - [ ] `~/.runelite/skedpojkar-sounds/` exists with its README.txt; drop any
-         `.wav` in as `level_up.wav` and level up again → sound plays
-   - [ ] Join a clan with broadcasts on; wait for a kill/death/drop broadcast → sound
-         (drop `clan_kill.wav` / `clan_death.wav` / `clan_drop.wav` in the sounds folder)
-   - [ ] Multiplayer: both of you install the plugin and join the same party
-         (Party plugin → same passphrase) → moves appear on both screens
-         (small delay is normal: moves apply when the server echoes them back)
+Prerequisites: JDK 11+ and an IDE with Java support (developed with VS Code +
+Extension Pack for Java; IntelliJ works too).
 
-If something misbehaves, logs are in `~/.runelite/logs/client.log` — the plugin
-logs under `com.skedpojkar`.
+Run [SkedpojkarPluginTest.java](src/test/java/com/skedpojkar/SkedpojkarPluginTest.java)'s
+`main` method (VM option `-ea` required) to boot a RuneLite client with the
+plugin loaded. `./gradlew build` verifies compilation without launching.
+Logs are in `~/.runelite/logs/client.log`, under `com.skedpojkar`.
 
-## Architecture / where to change things
+### Known gaps / not yet verified in-game
+
+- Sepulchre floor 5 and Corrupted Gauntlet triggers (wordings confirmed against
+  real chat messages, firing not yet observed)
+- Clan broadcast phrases are best-guess — verify against real broadcasts
+- Party TTT turn/win rules with two clients
+- Bundled-sound fallback (playing from the jar rather than the sounds folder)
+
+### Architecture
 
 ```
 src/main/java/com/skedpojkar/
-├── SkedpojkarPlugin.java      # Entry point: wires everything up in startUp()/shutDown()
-├── SkedpojkarConfig.java      # Settings panel definition (each method = one setting)
+├── SkedpojkarPlugin.java         # Entry point: wires everything up in startUp()/shutDown()
+├── SkedpojkarConfig.java         # Settings panel definition (each method = one setting)
 ├── announce/
-│   └── AnnouncementTriggers.java # Feature 1: @Subscribe event handlers → chat/sound
+│   └── AnnouncementTriggers.java # @Subscribe event handlers → chat/sound
 ├── sound/
 │   ├── Sound.java                # Enum of sounds → expected .wav file names
-│   └── SoundEngine.java          # Folder setup + .wav playback with volume
+│   └── SoundEngine.java          # Bundled + user sounds, playback via AudioPlayer
 ├── multiplayer/
 │   ├── PartyGameMessage.java     # The message relayed between party members
-│   └── PartyTicTacToe.java       # Shared board state + party send/receive
+│   └── PartyTicTacToe.java       # Shared board state + game rules + party send/receive
 └── panel/
-    ├── SkedpojkarPanel.java   # The sidebar panel (tab container)
+    ├── SkedpojkarPanel.java      # The sidebar panel (tab container)
     └── *Panel.java               # One class per tab, plain Java Swing
 ```
 
 ### Recipes for common extensions
 
 **Add a new announcement trigger:** add an `@Subscribe` method to
-`AnnouncementTriggers` for any [RuneLite event](https://static.runelite.net/api/runelite-api/net/runelite/api/events/package-summary.html)
-(e.g. `ItemContainerChanged`, `AnimationChanged`, `InteractingChanged`), call
-`announce(...)` and/or `soundEngine.play(...)`, and add a toggle to the config
-interface. Quest completions / collection log slots are detected by regex on chat
-messages — see [c-engineer-completed](https://github.com/m0bilebtw/c-engineer-completed)
-for ready-made patterns.
+`AnnouncementTriggers` for any [RuneLite event](https://static.runelite.net/api/runelite-api/net/runelite/api/events/package-summary.html),
+call `announce(...)` and/or `soundEngine.play(...)`, and add a toggle to the
+config interface. Quest completions / collection log slots are detected by
+regex on chat messages — see [c-engineer-completed](https://github.com/m0bilebtw/c-engineer-completed)
+for ready-made patterns. Player-name-targeted triggers are not allowed
+(see [Rejected features](https://github.com/runelite/runelite/wiki/Rejected-or-Rolled-Back-Features)).
 
-**Add a new sound:** add one line to the `Sound` enum with its file name;
-the sounds-folder README updates itself on next startup.
+**Add a new sound:** add one line to the `Sound` enum; bundle a default `.wav`
+in `src/main/resources/com/skedpojkar/sound/` if it should ship with one. The
+sounds-folder README updates itself on next startup.
 
 **Add a new minigame tab:** create a `JPanel` subclass in `panel/` and add one
 `tabs.addTab(...)` line in `SkedpojkarPanel`. Persist state via `ConfigManager`
-like `CookieClickerPanel` does. Note: only touch Swing from the Swing thread —
-if reacting to game/party events, wrap UI updates in `SwingUtilities.invokeLater`
+like `CookieClickerPanel` does. Only touch Swing from the Swing thread — if
+reacting to game/party events, wrap UI updates in `SwingUtilities.invokeLater`
 (see `PartyTicTacToe.notifyBoardChanged`).
 
-**Improve party tic-tac-toe:** turn enforcement, X/O assignment and win/draw
-detection are done. Remaining ideas: a challenge/accept handshake instead of an
-always-open board, and handling 3+ party members gracefully. New message types:
-extend `PartyMemberMessage`, register in the plugin's `startUp()` with
-`wsClient.registerMessage(...)`, receive via an `@Subscribe on<ClassName>` method.
+**Improve party tic-tac-toe:** remaining ideas — a challenge/accept handshake
+instead of an always-open board, and handling 3+ party members gracefully.
+New message types: extend `PartyMemberMessage`, register in the plugin's
+`startUp()` with `wsClient.registerMessage(...)`, receive via an
+`@Subscribe on<ClassName>` method.
 
 **Change the icon:** the spoon is `icon.svg` at the repo root; regenerate the
 PNGs from it (16x16 to `src/main/resources/com/skedpojkar/icon.png` for the
 sidebar, 48x48 root-level `icon.png` for the Plugin Hub listing).
 
-**Grow the facts pool:** edit the array in `FactsPanel`, or move it to a bundled
-resource file read via `getResource
+**Grow the facts pool:** edit the array in `FactsPanel`, or move it to a
+bundled resource file read via `getResourceAsStream`.
+
+### Releasing an update
+
+Push to this repo, then open a PR to
+[runelite/plugin-hub](https://github.com/runelite/plugin-hub) updating the
+`commit=` hash in `plugins/skedpojkar` to the new commit.
