@@ -158,6 +158,54 @@ public interface SkedpojkarConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "princeAliGateMessage",
+		name = "Prince Ali gate message",
+		description = "Chat message when you pass the Al Kharid gate having completed Prince Ali Rescue",
+		section = announcementsSection,
+		position = 12
+	)
+	default boolean princeAliGateMessage()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "houseAmenitiesCheck",
+		name = "House amenities check",
+		description = "Chat message when entering a player-owned house that lacks an ornate pool or ornate jewellery box",
+		section = announcementsSection,
+		position = 14
+	)
+	default boolean houseAmenitiesCheck()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "bankValueWarning",
+		name = "Low bank value warning",
+		description = "Chat message (once per session) when your opened bank is worth less than the threshold",
+		section = announcementsSection,
+		position = 15
+	)
+	default boolean bankValueWarning()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "bankValueThreshold",
+		name = "Bank value threshold",
+		description = "The bank value (in gp, GE prices) below which the warning shows",
+		section = announcementsSection,
+		position = 16
+	)
+	default int bankValueThreshold()
+	{
+		return 1_000_000;
+	}
+
+	@ConfigItem(
 		keyName = "soundsEnabled",
 		name = "Enable sounds",
 		description = "Play .wav sound files from the skedpojkar-sounds folder in your .runelite directory",

@@ -29,6 +29,10 @@ see it). Every trigger has its own toggle in the plugin settings:
 | You complete Floor 5 of the Hallowed Sepulchre | `sepulchre_floor_5.wav` | on |
 | You pass the Al Kharid toll gate | `good_job.wav` | on |
 | You complete the Corrupted Gauntlet | `good_job.wav` | on |
+| You pass the gate having completed Prince Ali Rescue | chat message | on |
+| A secret phrase sequence arrives via PMs (hardcoded) | `pm_sequence.wav` + chat message | always on |
+| You enter a house lacking an ornate pool / jewellery box | chat message | on |
+| Your opened bank is worth under a threshold (default 1M) | chat message, once per session | on |
 
 Level-up and your own death also print a chat message; the rest are sound-only.
 Clan triggers match the *type* of broadcast, never specific player names.
@@ -87,6 +91,10 @@ Logs are in `~/.runelite/logs/client.log`, under `com.skedpojkar`.
 - Clan broadcast phrases are best-guess — verify against real broadcasts
 - Party TTT turn/win rules with two clients
 - Bundled-sound fallback (playing from the jar rather than the sounds folder)
+- POH object names ("Exit portal", "Ornate pool ...", "Ornate jewellery box")
+  are best-guess — verify by entering a house
+- Bank value uses GE prices (untradeables count as 0); placeholder messages in
+  the PM-sequence, house, and bank triggers still need their real jokes
 
 ### Architecture
 

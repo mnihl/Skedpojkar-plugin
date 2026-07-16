@@ -14,16 +14,25 @@ import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
+import net.runelite.api.InventoryID;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.ObjectComposition;
 import net.runelite.api.Player;
+import net.runelite.api.Quest;
+import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
+import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.StatChanged;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.game.ItemManager;
 import net.runelite.client.util.Text;
 
 /**
@@ -60,6 +69,23 @@ public class AnnouncementTriggers
 	private static final String CLAN_KILL_PHRASE = "has defeated";
 	private static final String CLAN_DROP_PHRASE = "received a drop";
 
+	// The secret PM sequence: these phrases must arrive in this order as private
+	// messages (each its own PM, exact match, case-insensitive) to trigger the
+	// reaction. Hardcoded on purpose. Placeholder phrases — replace with the real ones.
+	private static final String[] PM_SEQUENCE_PHRASES = {
+		"yag",
+		"si",
+		"pilif",
+	};
+
+	// Player-owned-house amenity check. Objects are matched by name when the
+	// house loads. TODO verify these names in-game (log lists them at debug level).
+	private static final String POH_EXIT_PORTAL_NAME = "Exit portal";
+	private static final String POH_ORNATE_POOL_PREFIX = "Ornate pool";
+	private static final String POH_ORNATE_JEWELLERY_BOX_NAME = "Ornate jewellery box";
+	// Ticks to wait after a region load before judging the house contents
+	private static final int POH_SETTLE_TICKS = 3;
+
 	@Inject
 	private Client client;
 
@@ -69,11 +95,23 @@ public class AnnouncementTriggers
 	@Inject
 	private SoundEngine soundEngine;
 
+	@Inject
+	private ItemManager itemManager;
+
 	private final Map<Skill, Integer> previousLevels = new EnumMap<>(Skill.class);
 	private final Map<String, Long> lastPvpHit = new HashMap<>();
 	private final Random random = new Random();
 
 	private WorldPoint lastTickPosition;
+	private int pmSequenceProgress;
+	private boolean bankWarnedThisSession;
+
+	// POH scan state, reset on every region load
+	private boolean houseCheckPending;
+	private int houseSettleTicks;
+	private boolean sawExitPortal;
+	private boolean sawOrnatePool;
+	private boolean sawOrnateJewelleryBox;
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
@@ -83,6 +121,17 @@ public class AnnouncementTriggers
 			previousLevels.clear();
 			lastPvpHit.clear();
 			lastTickPosition = null;
+			pmSequenceProgress = 0;
+			bankWarnedThisSession = false;
+		}
+		else if (event.getGameState() == GameState.LOADING)
+		{
+			// Every region load could be a house teleport; collect objects and judge later
+			houseCheckPending = true;
+			houseSettleTicks = 0;
+			sawExitPortal = false;
+			sawOrnatePool = false;
+			sawOrnateJewelleryBox = false;
 		}
 	}
 
@@ -192,8 +241,40 @@ public class AnnouncementTriggers
 				}
 				break;
 
+			// Incoming private messages: secret-sequence detection.
+			// Matches message content only, regardless of who sent it.
+			case PRIVATECHAT:
+				handlePrivateMessage(message);
+				break;
+
 			default:
 				break;
+		}
+	}
+
+	/**
+	 * Advances through the hardcoded secret phrase sequence: each incoming PM
+	 * must exactly match the next phrase (case-insensitive). A wrong message
+	 * resets progress (or counts as a fresh start if it matches the first
+	 * phrase). Completing the sequence triggers the reaction.
+	 */
+	private void handlePrivateMessage(String message)
+	{
+		String msg = message.trim();
+		if (msg.equalsIgnoreCase(PM_SEQUENCE_PHRASES[pmSequenceProgress]))
+		{
+			pmSequenceProgress++;
+		}
+		else
+		{
+			pmSequenceProgress = msg.equalsIgnoreCase(PM_SEQUENCE_PHRASES[0]) ? 1 : 0;
+		}
+
+		if (pmSequenceProgress >= PM_SEQUENCE_PHRASES.length)
+		{
+			pmSequenceProgress = 0;
+			announce("The secret sequence has been spoken.");
+			soundEngine.play(Sound.PM_SEQUENCE);
 		}
 	}
 
@@ -215,11 +296,6 @@ public class AnnouncementTriggers
 		}
 	}
 
-	/**
-	 * Detects passing the Al Kharid toll gate by watching for the player's position
-	 * crossing the gate's fence line between ticks (running covers 2 tiles per tick,
-	 * so checking "standing on the gate tile" would miss crossings).
-	 */
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
@@ -228,12 +304,23 @@ public class AnnouncementTriggers
 		{
 			return;
 		}
+
+		checkGateCrossing(local);
+		checkHouseAmenities();
+	}
+
+	/**
+	 * Detects passing the Al Kharid toll gate by watching for the player's position
+	 * crossing the gate's fence line between ticks (running covers 2 tiles per tick,
+	 * so checking "standing on the gate tile" would miss crossings).
+	 */
+	private void checkGateCrossing(Player local)
+	{
 		WorldPoint current = local.getWorldLocation();
 		WorldPoint previous = lastTickPosition;
 		lastTickPosition = current;
 
-		if (previous == null || !config.goodJobSound()
-			|| current.getPlane() != 0 || previous.getPlane() != 0)
+		if (previous == null || current.getPlane() != 0 || previous.getPlane() != 0)
 		{
 			return;
 		}
@@ -242,9 +329,112 @@ public class AnnouncementTriggers
 			&& previous.getY() >= GATE_MIN_Y && previous.getY() <= GATE_MAX_Y;
 		boolean crossed = (previous.getX() < GATE_X && current.getX() >= GATE_X)
 			|| (previous.getX() >= GATE_X && current.getX() < GATE_X);
-		if (nearGate && crossed)
+		if (!nearGate || !crossed)
+		{
+			return;
+		}
+
+		if (config.goodJobSound())
 		{
 			soundEngine.play(Sound.GOOD_JOB);
+		}
+		if (config.princeAliGateMessage()
+			&& Quest.PRINCE_ALI_RESCUE.getState(client) == QuestState.FINISHED)
+		{
+			announce("Hey, you've done Prince Ali Rescue, wow!");
+		}
+	}
+
+	/**
+	 * A few ticks after a region load, judge whether we're in a player-owned house
+	 * (spotted its exit portal) that lacks the best pool and/or jewellery box.
+	 */
+	private void checkHouseAmenities()
+	{
+		if (!houseCheckPending || ++houseSettleTicks < POH_SETTLE_TICKS)
+		{
+			return;
+		}
+		houseCheckPending = false;
+
+		if (!config.houseAmenitiesCheck() || !sawExitPortal)
+		{
+			return;
+		}
+		if (!sawOrnatePool || !sawOrnateJewelleryBox)
+		{
+			// Placeholder message — replace with the real joke later
+			announce("Brokie house.");
+		}
+	}
+
+	/**
+	 * Collects notable objects while a (possible) house is loading. Only runs in
+	 * instanced regions, which is where player-owned houses live.
+	 */
+	@Subscribe
+	public void onGameObjectSpawned(GameObjectSpawned event)
+	{
+		if (!houseCheckPending || !client.isInInstancedRegion())
+		{
+			return;
+		}
+
+		ObjectComposition def = client.getObjectDefinition(event.getGameObject().getId());
+		String name = def == null ? null : def.getName();
+		if (name == null)
+		{
+			return;
+		}
+
+		if (POH_EXIT_PORTAL_NAME.equalsIgnoreCase(name))
+		{
+			sawExitPortal = true;
+		}
+		else if (name.startsWith(POH_ORNATE_POOL_PREFIX))
+		{
+			sawOrnatePool = true;
+		}
+		else if (POH_ORNATE_JEWELLERY_BOX_NAME.equalsIgnoreCase(name))
+		{
+			sawOrnateJewelleryBox = true;
+		}
+	}
+
+	/**
+	 * Warns (once per session) when the bank is opened and its rough value —
+	 * GE prices via ItemManager — is under the configured threshold.
+	 */
+	@Subscribe
+	public void onItemContainerChanged(ItemContainerChanged event)
+	{
+		if (event.getContainerId() != InventoryID.BANK.getId()
+			|| !config.bankValueWarning() || bankWarnedThisSession)
+		{
+			return;
+		}
+
+		ItemContainer bank = event.getItemContainer();
+		if (bank == null)
+		{
+			return;
+		}
+
+		long total = 0;
+		for (Item item : bank.getItems())
+		{
+			if (item.getId() > 0 && item.getQuantity() > 0)
+			{
+				total += (long) itemManager.getItemPrice(item.getId()) * item.getQuantity();
+			}
+		}
+
+		if (total < config.bankValueThreshold())
+		{
+			bankWarnedThisSession = true;
+			// Placeholder message — replace with the real joke later
+			announce("Pfft. Bank value under " + config.bankValueThreshold()
+				+ " Brokie.");
 		}
 	}
 

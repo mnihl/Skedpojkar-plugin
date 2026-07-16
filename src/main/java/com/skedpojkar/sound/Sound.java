@@ -18,7 +18,8 @@ public enum Sound
 	PVP_ZERO_HIT("pvp_zero_hit.wav"),
 	PVP_KILL("pvp_kill.wav"),
 	SEPULCHRE_FLOOR_5("sepulchre_floor_5.wav"),
-	GOOD_JOB("good_job.wav");
+	GOOD_JOB("good_job.wav"),
+	PM_SEQUENCE("pm_sequence.wav");
 
 	private static final Random RANDOM = new Random();
 
