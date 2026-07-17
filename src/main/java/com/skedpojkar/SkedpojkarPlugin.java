@@ -24,8 +24,8 @@ import net.runelite.client.util.ImageUtil;
 @Slf4j
 @PluginDescriptor(
 	name = "Skedpojkar",
-	description = "Sounds and chat announcements for events and specific players, plus side-panel minigames and party tic-tac-toe",
-	tags = {"corgi", "sound", "announce", "minigame", "party", "fun"}
+	description = "Side panel idle-minigames, toggleable fun sounds and chat messages during certain in-game events.",
+	tags = {"sound", "announce", "minigame", "party", "clan", "fun"}
 )
 public class SkedpojkarPlugin extends Plugin
 {
