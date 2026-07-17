@@ -30,7 +30,7 @@ see it). Every trigger has its own toggle in the plugin settings:
 | You pass the Al Kharid toll gate | `good_job.wav` | on |
 | You complete the Corrupted Gauntlet | `good_job.wav` | on |
 | You pass the gate having completed Prince Ali Rescue | chat message | on |
-| A secret phrase sequence arrives via PMs (hardcoded) | `pm_sequence.wav` + chat message | always on |
+| A secret phrase sequence arrives via PMs | `pm_sequence.wav` + chat message | on |
 | You enter a house lacking an ornate pool / jewellery box | chat message | on |
 | Your opened bank is worth under a threshold (default 1M) | chat message, once per session | on |
 
@@ -51,7 +51,12 @@ names are created automatically on first start.
 
 A sidebar button (orange spoon) opens a panel with tabs:
 
-- **Cookies** — cookie clicker; the count is saved per character
+- **Runes** — runecrafting clicker: click to craft, buy RS-flavored upgrades
+  (pouches, essence miners, ZMI trips...), prestige through the real rune
+  tiers Air → Wrath (each doubles your clicks), then Ascend the Runespan for
+  a permanent multiplier. Progress saves per character; old cookie-clicker
+  counts migrate into starting points. No offline gains — upgrades only work
+  while you're logged in. See [RUNECLICKER_DESIGN.md](RUNECLICKER_DESIGN.md).
 - **TTT** — tic-tac-toe against a simple AI (win > block > center > random)
 - **Facts** — random facts from a built-in pool
 - **Party** — multiplayer tic-tac-toe (see below)
@@ -131,7 +136,7 @@ sounds-folder README updates itself on next startup.
 
 **Add a new minigame tab:** create a `JPanel` subclass in `panel/` and add one
 `tabs.addTab(...)` line in `SkedpojkarPanel`. Persist state via `ConfigManager`
-like `CookieClickerPanel` does. Only touch Swing from the Swing thread — if
+like `RuneClickerPanel` does. Only touch Swing from the Swing thread — if
 reacting to game/party events, wrap UI updates in `SwingUtilities.invokeLater`
 (see `PartyTicTacToe.notifyBoardChanged`).
 

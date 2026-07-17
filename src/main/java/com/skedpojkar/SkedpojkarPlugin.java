@@ -45,6 +45,9 @@ public class SkedpojkarPlugin extends Plugin
 	private ScheduledExecutorService executor;
 
 	@Inject
+	private net.runelite.client.game.ItemManager itemManager;
+
+	@Inject
 	private AnnouncementTriggers announcementTriggers;
 
 	@Inject
@@ -64,7 +67,7 @@ public class SkedpojkarPlugin extends Plugin
 		wsClient.registerMessage(PartyGameMessage.class);
 		executor.execute(soundEngine::init);
 
-		panel = new SkedpojkarPanel(configManager, partyTicTacToe);
+		panel = new SkedpojkarPanel(configManager, itemManager, partyTicTacToe);
 		navButton = NavigationButton.builder()
 			.tooltip("Skedpojkar")
 			.icon(ImageUtil.loadImageResource(SkedpojkarPlugin.class, "icon.png"))
@@ -94,14 +97,14 @@ public class SkedpojkarPlugin extends Plugin
 		log.info("Skedpojkar stopped");
 	}
 
-	/** The cookie count is stored per character, so re-read it when the character changes. */
+	/** Clicker progress is stored per character, so re-read it when the character changes. */
 	@Subscribe
 	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
 	{
 		SkedpojkarPanel currentPanel = panel;
 		if (currentPanel != null)
 		{
-			SwingUtilities.invokeLater(currentPanel.getCookieClickerPanel()::refresh);
+			SwingUtilities.invokeLater(currentPanel.getRuneClickerPanel()::refresh);
 		}
 	}
 
