@@ -46,7 +46,9 @@ public class RuneClickerPanel extends JPanel
 {
 	private static final String STATE_KEY = "runeClicker";
 	private static final String LEGACY_COOKIE_KEY = "cookieCount";
-	private static final int STATE_VERSION = 2;
+	private static final int STATE_VERSION = 3;
+
+	private static final int BULK_BUY_COUNT = 10;
 
 	private static final String[] RUNE_NAMES = {
 		"Air", "Mind", "Water", "Earth", "Fire", "Body", "Cosmic", "Chaos",
@@ -143,6 +145,8 @@ public class RuneClickerPanel extends JPanel
 	private long totalClicks;
 	private int totalPrestiges;
 	private long milestoneMask;
+	private long goldenSeen;
+	private long goldenCaught;
 	private final int[] perkCounts = new int[PERK_NAMES.length];
 
 	// Transient state
@@ -200,6 +204,13 @@ public class RuneClickerPanel extends JPanel
 		goldenButton.setFocusPainted(false);
 		goldenButton.setVisible(false);
 		goldenButton.addActionListener(e -> onGoldenClicked());
+		AsyncBufferedImage goldenImg = itemManager.getImage(ItemID.GOLDEN_NUGGET);
+		goldenButton.setIcon(new ImageIcon(goldenImg));
+		goldenImg.onLoaded(() ->
+		{
+			goldenButton.setIcon(new ImageIcon(goldenImg));
+			goldenButton.repaint();
+		});
 
 		JPanel top = new JPanel();
 		top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
@@ -217,6 +228,11 @@ public class RuneClickerPanel extends JPanel
 		top.add(Box.createVerticalStrut(4));
 		top.add(goldenButton);
 		prestigeButton.addActionListener(e -> onPrestige());
+		// Cap widths: long full-digit costs must ellipsize inside the fixed
+		// ~225px sidebar instead of widening the panel (which resizes the client)
+		prestigeButton.setPreferredSize(new Dimension(200, 26));
+		prestigeButton.setMaximumSize(new Dimension(200, 26));
+		goldenButton.setMaximumSize(new Dimension(200, 34));
 
 		// Middle: the shop
 		JPanel shop = new JPanel();
@@ -226,7 +242,9 @@ public class RuneClickerPanel extends JPanel
 		{
 			final int idx = i;
 			upgradeButtons[i] = new JButton("Buy");
-			upgradeButtons[i].addActionListener(e -> buyUpgrade(idx));
+			upgradeButtons[i].setToolTipText("Shift-click: buy up to " + BULK_BUY_COUNT);
+			upgradeButtons[i].addActionListener(e ->
+				buyUpgrade(idx, (e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0));
 			upgradeLabels[i] = new JLabel();
 			shop.add(shopRow(upgradeLabels[i], upgradeButtons[i]));
 		}
@@ -397,6 +415,7 @@ public class RuneClickerPanel extends JPanel
 		{
 			return;
 		}
+		goldenCaught++;
 
 		if (random.nextBoolean())
 		{
@@ -426,17 +445,30 @@ public class RuneClickerPanel extends JPanel
 		nextGoldenAtMs = System.currentTimeMillis() + wait * 1000L;
 	}
 
-	private void buyUpgrade(int idx)
+	private void buyUpgrade(int idx, boolean bulk)
 	{
-		double cost = upgradeCost(idx);
-		if (!loggedIn || points < cost)
+		if (!loggedIn)
 		{
 			return;
 		}
-		points -= cost;
-		upgradeCounts[idx]++;
-		saveState();
-		refreshUi();
+		int toBuy = bulk ? BULK_BUY_COUNT : 1;
+		boolean bought = false;
+		for (int i = 0; i < toBuy; i++)
+		{
+			double cost = upgradeCost(idx);
+			if (points < cost)
+			{
+				break;
+			}
+			points -= cost;
+			upgradeCounts[idx]++;
+			bought = true;
+		}
+		if (bought)
+		{
+			saveState();
+			refreshUi();
+		}
 	}
 
 	private void buyPouch()
@@ -580,6 +612,7 @@ public class RuneClickerPanel extends JPanel
 		{
 			goldenVisibleUntilMs = now + GOLDEN_VISIBLE_S * 1000L;
 			goldenButton.setVisible(true);
+			goldenSeen++;
 		}
 
 		if (now > clickFeedbackUntilMs)
@@ -697,6 +730,8 @@ public class RuneClickerPanel extends JPanel
 				milestoneMask = 0;
 				Arrays.fill(perkCounts, 0);
 			}
+			goldenSeen = version >= 3 ? Long.parseLong(parts[12]) : 0;
+			goldenCaught = version >= 3 ? Long.parseLong(parts[13]) : 0;
 		}
 		catch (Exception e)
 		{
@@ -760,7 +795,8 @@ public class RuneClickerPanel extends JPanel
 		String state = STATE_VERSION + "|" + tier + "|" + points + "|" + ascensions
 			+ "|" + pouchLevel + "|" + (daeyaltOwned ? "1" : "0") + "|" + joinCounts(upgradeCounts)
 			+ "|" + lifetimePoints + "|" + totalClicks + "|" + totalPrestiges
-			+ "|" + milestoneMask + "|" + joinCounts(perkCounts);
+			+ "|" + milestoneMask + "|" + joinCounts(perkCounts)
+			+ "|" + goldenSeen + "|" + goldenCaught;
 		configManager.setRSProfileConfiguration(SkedpojkarConfig.GROUP, STATE_KEY, state);
 	}
 
@@ -909,11 +945,21 @@ public class RuneClickerPanel extends JPanel
 		daeyaltLabel.setToolTipText("<html>While active: ALL income x2 (clicks and idle)<br>for "
 			+ DAEYALT_BOOST_SECONDS + " s, then " + (DAEYALT_COOLDOWN_SECONDS / 60) + " min cooldown.</html>");
 
-		// Runespan perks: only shown once ascension is a thing for this character
+		// Runespan perks: teased before the first ascension, usable after
 		boolean showPerks = ascensions > 0;
 		int unspent = unspentRunespanPoints();
-		perkHeaderLabel.setVisible(showPerks);
-		perkHeaderLabel.setText("Runespan perks — " + unspent + " point(s)");
+		perkHeaderLabel.setVisible(true);
+		if (showPerks)
+		{
+			perkHeaderLabel.setText(html("Runespan perks — " + unspent + " point(s)"));
+			perkHeaderLabel.setToolTipText(null);
+		}
+		else
+		{
+			perkHeaderLabel.setText(html("??? — Ascend the Runespan to unlock"));
+			perkHeaderLabel.setToolTipText("<html>Reach Wrath runes and Ascend to earn Runespan points,<br>"
+				+ "spent here on permanent perks.</html>");
+		}
 		for (int i = 0; i < PERK_NAMES.length; i++)
 		{
 			perkRows[i].setVisible(showPerks);
@@ -930,7 +976,8 @@ public class RuneClickerPanel extends JPanel
 
 		statsLabel.setText(html("Lifetime: " + format(lifetimePoints) + " points, "
 			+ format(totalClicks) + " clicks<br>Prestiges: " + totalPrestiges
-			+ ", Ascensions: " + ascensions));
+			+ ", Ascensions: " + ascensions
+			+ "<br>Golden runes caught: " + goldenCaught + "/" + goldenSeen));
 
 		if (tier >= MAX_TIER)
 		{
@@ -940,6 +987,7 @@ public class RuneClickerPanel extends JPanel
 		{
 			prestigeButton.setText("Prestige: " + RUNE_NAMES[tier + 1] + " (" + format(prestigeCost()) + ")");
 		}
+		prestigeButton.setToolTipText("Cost: " + format(prestigeCost()) + " points");
 		prestigeButton.setEnabled(points >= prestigeCost());
 	}
 
@@ -961,7 +1009,7 @@ public class RuneClickerPanel extends JPanel
 	 */
 	private static String html(String inner)
 	{
-		return "<html><body style='width:105px'>" + inner + "</body></html>";
+		return "<html><body style='width:95px'>" + inner + "</body></html>";
 	}
 
 	/** For per-second/per-click rates, which can be fractional (e.g. 0.5/s). */

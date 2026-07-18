@@ -71,7 +71,7 @@ public class AnnouncementTriggers
 
 	// The secret PM sequence: these phrases must arrive in this order as private
 	// messages (each its own PM, exact match, case-insensitive) to trigger the
-	// reaction. Hardcoded on purpose. Placeholder phrases — replace with the real ones.
+	// reaction. Hardcoded on purpose.
 	private static final String[] PM_SEQUENCE_PHRASES = {
 		"yag",
 		"si",
@@ -379,7 +379,6 @@ public class AnnouncementTriggers
 		}
 		if (!sawOrnatePool || !sawOrnateJewelleryBox)
 		{
-			// Placeholder message — replace with the real joke later
 			announce("Brokie house.");
 		}
 	}
@@ -461,9 +460,8 @@ public class AnnouncementTriggers
 		if (total < config.bankValueThreshold())
 		{
 			bankWarnedThisSession = true;
-			// Placeholder message — replace with the real joke later
-			announce("Pfft. Bank value under " + config.bankValueThreshold()
-				+ " Brokie.");
+			announce("Pfft. Bank value under " + String.format("%,d", config.bankValueThreshold())
+				+ ". Brokie.");
 		}
 	}
 
