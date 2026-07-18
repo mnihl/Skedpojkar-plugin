@@ -48,6 +48,15 @@ public class SkedpojkarPlugin extends Plugin
 	private net.runelite.client.game.ItemManager itemManager;
 
 	@Inject
+	private net.runelite.api.Client client;
+
+	@Inject
+	private net.runelite.client.callback.ClientThread clientThread;
+
+	@Inject
+	private SkedpojkarConfig config;
+
+	@Inject
 	private AnnouncementTriggers announcementTriggers;
 
 	@Inject
@@ -67,7 +76,7 @@ public class SkedpojkarPlugin extends Plugin
 		wsClient.registerMessage(PartyGameMessage.class);
 		executor.execute(soundEngine::init);
 
-		panel = new SkedpojkarPanel(configManager, itemManager, partyTicTacToe);
+		panel = new SkedpojkarPanel(config, configManager, client, clientThread, itemManager, partyTicTacToe);
 		navButton = NavigationButton.builder()
 			.tooltip("Skedpojkar")
 			.icon(ImageUtil.loadImageResource(SkedpojkarPlugin.class, "icon.png"))

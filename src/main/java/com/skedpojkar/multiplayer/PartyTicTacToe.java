@@ -104,7 +104,7 @@ public class PartyTicTacToe
 			}
 			if (winner != null)
 			{
-				return winner.equals(mine) ? "You win! Corgi celebrates." : "You lose. Woof.";
+				return winner.equals(mine) ? "You win!" : "You lose!";
 			}
 			return "You are " + mine + (mine.equals(nextTurn())
 				? " — your move." : " — waiting for " + nextTurn() + ".");

@@ -136,7 +136,7 @@ public class TicTacToePanel extends JPanel
 			if (first != null && first.equals(board[line[1]]) && first.equals(board[line[2]]))
 			{
 				gameOver = true;
-				status.setText(first.equals("X") ? "You win! Corgi celebrates." : "The AI wins. Woof.");
+				status.setText(first.equals("X") ? "You win!" : "The AI wins!");
 				return true;
 			}
 		}

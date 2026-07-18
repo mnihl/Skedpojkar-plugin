@@ -89,12 +89,23 @@ is what actually moves you forward. Exact numbers need play-tuning.
   key and credited as points).
 - **No offline progress.** Idle income accrues only while the client is open
   and you're logged in; nothing is earned between sessions.
-- **Second prestige layer: Runespan Ascension.** Completing a Wrath-tier
-  prestige offers Ascension: everything resets (tier back to Air, points,
-  upgrades) in exchange for one **Runespan point**, a permanent currency that
-  never resets. Each Runespan point gives a global ×10 income multiplier, and
-  later ascensions could unlock cosmetic button skins or an automation
-  upgrade ("Wizard Finix clicks for you: +1 auto-click/s per point"). Each
-  ascension requires one full Air→Wrath run, which naturally gets faster with
-  the multiplier — classic ascension pacing. Costs/effects need tuning once
-  the first layer's numbers are play-tested.
+- **Second prestige layer: Runespan Ascension (implemented as a perk shop).**
+  Ascending resets everything and grants 1 Runespan point. Points buy
+  permanent perks (1 point each): Wizard Finix's help (auto-click 1/s per
+  level, repeatable), Pouch keeper (pouches survive prestige), Perfect
+  Ourania (ZMI never fails), Golden magnetism (golden runes 2x as often),
+  Runespan attunement (all income x3, repeatable). This replaced the original
+  flat x10-per-ascension idea — decisions beat numbers.
+
+## Also implemented (v2)
+
+- **Golden rune**: appears every 3–10 min for 10 s; clicking gives a points
+  jackpot or a x7 income frenzy for 30 s (50/50).
+- **Crit clicks**: 5% chance of x10 per manual click, with orange feedback.
+- **Milestones**: one-time chat messages (no sounds) for lifetime points
+  (10K/1M/1B/1T), 1,000 manual clicks, first prestige, reaching Nature,
+  reaching Wrath, first ascension. Tracked in a persisted bitmask.
+- **Juice**: click feedback label under the rune ("+208" / "CRIT! +2,080"),
+  stats footer (lifetime points, clicks, prestiges, ascensions), talisman
+  named after the current tier ("Mind talisman").
+- Save format bumped to v2 (v1 saves load with sensible defaults).

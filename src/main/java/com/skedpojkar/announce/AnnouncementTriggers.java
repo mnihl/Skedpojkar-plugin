@@ -78,9 +78,12 @@ public class AnnouncementTriggers
 		"pilif",
 	};
 
-	// Player-owned-house amenity check. Objects are matched by name when the
-	// house loads. TODO verify these names in-game (log lists them at debug level).
-	private static final String POH_EXIT_PORTAL_NAME = "Exit portal";
+	// Player-owned-house amenity check. Object names verified in-game 2026-07-18:
+	// the exit is named just "Portal", and a POH is full of "... space" build
+	// hotspots — requiring both is a solid house fingerprint that other
+	// instanced content won't match.
+	private static final String POH_PORTAL_NAME = "Portal";
+	private static final String POH_HOTSPOT_SUFFIX = " space";
 	private static final String POH_ORNATE_POOL_PREFIX = "Ornate pool";
 	private static final String POH_ORNATE_JEWELLERY_BOX_NAME = "Ornate jewellery box";
 	// Ticks to wait after a region load before judging the house contents
@@ -110,8 +113,10 @@ public class AnnouncementTriggers
 	private boolean houseCheckPending;
 	private int houseSettleTicks;
 	private boolean sawExitPortal;
+	private boolean sawBuildHotspot;
 	private boolean sawOrnatePool;
 	private boolean sawOrnateJewelleryBox;
+	private final java.util.Set<String> scannedObjectNames = new java.util.HashSet<>();
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
@@ -130,8 +135,10 @@ public class AnnouncementTriggers
 			houseCheckPending = true;
 			houseSettleTicks = 0;
 			sawExitPortal = false;
+			sawBuildHotspot = false;
 			sawOrnatePool = false;
 			sawOrnateJewelleryBox = false;
+			scannedObjectNames.clear();
 		}
 	}
 
@@ -145,7 +152,7 @@ public class AnnouncementTriggers
 			return;
 		}
 
-		announce("Level up: " + event.getSkill().getName() + " is now " + event.getLevel() + ". The corgi approves.");
+		announce("Level up: " + event.getSkill().getName() + " is now " + event.getLevel() + ". Gamer.");
 		soundEngine.play(Sound.LEVEL_UP);
 	}
 
@@ -192,7 +199,7 @@ public class AnnouncementTriggers
 		{
 			if (config.announceOwnDeath())
 			{
-				announce("You died. The corgi is disappointed.");
+				announce("You died.");
 				soundEngine.play(Sound.OWN_DEATH);
 			}
 			return;
@@ -215,7 +222,10 @@ public class AnnouncementTriggers
 
 		switch (event.getType())
 		{
+			// SPAM is the "Game: Filtered" message type — completion/duration
+			// messages (Sepulchre, Gauntlet) often arrive as SPAM, not GAMEMESSAGE
 			case GAMEMESSAGE:
+			case SPAM:
 				if (config.sepulchreSound() && message.startsWith(SEPULCHRE_FLOOR_5_MESSAGE))
 				{
 					soundEngine.play(Sound.SEPULCHRE_FLOOR_5);
@@ -357,7 +367,13 @@ public class AnnouncementTriggers
 		}
 		houseCheckPending = false;
 
-		if (!config.houseAmenitiesCheck() || !sawExitPortal)
+		if (!scannedObjectNames.isEmpty())
+		{
+			log.debug("Instance scan: portal={} hotspots={} pool={} box={} objects={}",
+				sawExitPortal, sawBuildHotspot, sawOrnatePool, sawOrnateJewelleryBox, scannedObjectNames);
+		}
+
+		if (!config.houseAmenitiesCheck() || !sawExitPortal || !sawBuildHotspot)
 		{
 			return;
 		}
@@ -381,15 +397,28 @@ public class AnnouncementTriggers
 		}
 
 		ObjectComposition def = client.getObjectDefinition(event.getGameObject().getId());
+		if (def != null && def.getImpostorIds() != null)
+		{
+			// Built furniture (pools, jewellery boxes...) are varbit-transformed
+			// objects: the base definition is a nameless hotspot, the impostor is
+			// what's actually built
+			def = def.getImpostor();
+		}
 		String name = def == null ? null : def.getName();
-		if (name == null)
+		if (name == null || "null".equals(name))
 		{
 			return;
 		}
 
-		if (POH_EXIT_PORTAL_NAME.equalsIgnoreCase(name))
+		scannedObjectNames.add(name);
+
+		if (POH_PORTAL_NAME.equalsIgnoreCase(name))
 		{
 			sawExitPortal = true;
+		}
+		else if (name.endsWith(POH_HOTSPOT_SUFFIX))
+		{
+			sawBuildHotspot = true;
 		}
 		else if (name.startsWith(POH_ORNATE_POOL_PREFIX))
 		{
