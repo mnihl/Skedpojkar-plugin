@@ -301,12 +301,33 @@ public class RuneClickerPanel extends JPanel
 		return row;
 	}
 
+	/** The RS profile key whose state is currently loaded in memory. */
+	private String loadedProfileKey;
+
+	/** The key whose in-memory state represents real progress (guards against
+	 * a transient null read wiping a character during login). */
+	private String stateOwnerKey;
+
+	/**
+	 * True while actually in the game world. The profile key alone is NOT a
+	 * login check — RuneLite keeps the last character's key after logout, so
+	 * the game state must be consulted too. LOADING counts as playing (it
+	 * flickers on every region crossing mid-session).
+	 */
+	private boolean isPlaying()
+	{
+		net.runelite.api.GameState gs = client.getGameState();
+		return (gs == GameState.LOGGED_IN || gs == GameState.LOADING)
+			&& configManager.getRSProfileKey() != null;
+	}
+
 	/** Reloads state for the current character. Called on login/account switch. */
 	public void refresh()
 	{
-		loggedIn = configManager.getRSProfileKey() != null;
+		loggedIn = isPlaying();
 		if (loggedIn)
 		{
+			loadedProfileKey = configManager.getRSProfileKey();
 			loadState();
 		}
 		refreshUi();
@@ -565,14 +586,16 @@ public class RuneClickerPanel extends JPanel
 
 	private void tick()
 	{
-		// Re-check login state every tick: logging out must stop the clock
-		// (no offline/logged-out progress), and logging in must load the
+		// Re-check every tick: logging out must stop the clock (no
+		// offline/logged-out progress), and logging in must load the
 		// character's state before any income accrues.
-		boolean nowLoggedIn = configManager.getRSProfileKey() != null;
-		if (!nowLoggedIn)
+		if (!isPlaying())
 		{
 			if (loggedIn)
 			{
+				// Save the last few seconds while the profile key still
+				// belongs to the character who earned them
+				saveState();
 				loggedIn = false;
 				goldenButton.setVisible(false);
 				refreshUi();
@@ -698,7 +721,21 @@ public class RuneClickerPanel extends JPanel
 		String stored = configManager.getRSProfileConfiguration(SkedpojkarConfig.GROUP, STATE_KEY);
 		if (stored == null)
 		{
+			// A missing save for a profile we already hold real progress for is
+			// almost certainly a transient read failure during login — keep the
+			// in-memory state instead of wiping it with a fresh one
+			if (loadedProfileKey != null && loadedProfileKey.equals(stateOwnerKey)
+				&& (lifetimePoints > 0 || tier > 0 || totalClicks > 0))
+			{
+				log.warn("Saved Runeclicker state missing for profile {} but in-memory progress exists — keeping it", loadedProfileKey);
+				saveState();
+				return;
+			}
+			// INFO on purpose: fresh-state initialization is the prime suspect in
+			// "my progress was wiped" reports — this line makes them diagnosable
+			log.info("No saved Runeclicker state for profile {}, starting fresh", loadedProfileKey);
 			migrateFromCookies();
+			stateOwnerKey = loadedProfileKey;
 			return;
 		}
 
@@ -732,11 +769,13 @@ public class RuneClickerPanel extends JPanel
 			}
 			goldenSeen = version >= 3 ? Long.parseLong(parts[12]) : 0;
 			goldenCaught = version >= 3 ? Long.parseLong(parts[13]) : 0;
+			stateOwnerKey = loadedProfileKey;
 		}
 		catch (Exception e)
 		{
 			log.warn("Corrupt rune clicker state, starting fresh: {}", stored, e);
 			resetAll();
+			stateOwnerKey = loadedProfileKey;
 		}
 	}
 
@@ -787,8 +826,15 @@ public class RuneClickerPanel extends JPanel
 
 	private void saveState()
 	{
-		if (!loggedIn)
+		// Never write one character's state onto another: if the active profile
+		// changed since we loaded, skip the save and reload instead
+		String currentKey = configManager.getRSProfileKey();
+		if (!loggedIn || currentKey == null || !currentKey.equals(loadedProfileKey))
 		{
+			if (currentKey != null && !currentKey.equals(loadedProfileKey))
+			{
+				refresh();
+			}
 			return;
 		}
 		ticksSinceSave = 0;

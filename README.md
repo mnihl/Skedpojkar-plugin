@@ -70,6 +70,15 @@ turns alternate, and wins/draws are detected. Designed for exactly 2 players.
 Moves are relayed over RuneLite's official party websocket; a short delay
 before your own move appears is normal.
 
+## Bugs & feature requests
+
+Found a bug or want a feature? Open an issue on
+[GitHub](https://github.com/mnihl/Skedpojkar-plugin/issues). For bug reports,
+please include what happened, what you expected, and — if the client was open —
+the relevant lines from `~/.runelite/logs/client.log` (the plugin logs under
+`com.skedpojkar`). For Runeclicker problems, mention which character you were
+on and whether you play on multiple computers.
+
 ## Privacy & rules
 
 This plugin only reads game events, plays local sounds, prints local-only chat
