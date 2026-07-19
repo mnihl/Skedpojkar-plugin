@@ -47,7 +47,11 @@ public class SkedpojkarPanel extends PluginPanel
 		runeClickerPanel = new RuneClickerPanel(config, configManager, client, clientThread, itemManager);
 
 		JTabbedPane tabs = new JTabbedPane();
-		tabs.addTab("Runeclicker", runeClickerPanel);
+		// Small clean font + short titles so all five tabs fit a single row
+		// in the 225px sidebar (wrapped tab rows look ragged)
+		tabs.setFont(new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.PLAIN, 11));
+		tabs.addTab("Info", new WelcomePanel());
+		tabs.addTab("Clicker", runeClickerPanel);
 		tabs.addTab("TTT", new TicTacToePanel());
 		tabs.addTab("Facts", new FactsPanel());
 		tabs.addTab("Party", new MultiplayerPanel(partyTicTacToe));

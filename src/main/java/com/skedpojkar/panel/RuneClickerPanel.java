@@ -127,6 +127,35 @@ public class RuneClickerPanel extends JPanel
 	private static final int AUTOSAVE_EVERY_TICKS = 10;
 	private static final long CLICK_FEEDBACK_MS = 1_500;
 
+	// Shop row icons (item sprites). Some are stand-ins: the Wicked hood and
+	// Wizard Finix are RS3 flavor with no OSRS item, so mystic hat / air staff.
+	private static final int[] UPGRADE_ICON_IDS = {
+		ItemID.AIR_TALISMAN, ItemID.RUNE_ESSENCE, ItemID.PURE_ESSENCE,
+		ItemID.ABYSSAL_WHIP, ItemID.LAW_RUNE, ItemID.MYSTIC_HAT,
+	};
+	private static final int[] POUCH_ICON_IDS = {
+		ItemID.SMALL_POUCH, ItemID.MEDIUM_POUCH, ItemID.LARGE_POUCH,
+		ItemID.GIANT_POUCH, ItemID.COLOSSAL_POUCH,
+	};
+	private static final int[] PERK_ICON_IDS = {
+		ItemID.STAFF_OF_AIR, ItemID.GIANT_POUCH, ItemID.ASTRAL_RUNE,
+		ItemID.GOLDEN_NUGGET, ItemID.SOUL_RUNE,
+	};
+	private static final int SHOP_ICON_SIZE = 22;
+
+	// The talisman row's icon follows the tier. Not every rune has a talisman
+	// in OSRS (astral/blood/soul/wrath) — the elemental talisman stands in.
+	private static final int[] TALISMAN_ICON_IDS = {
+		ItemID.AIR_TALISMAN, ItemID.MIND_TALISMAN, ItemID.WATER_TALISMAN,
+		ItemID.EARTH_TALISMAN, ItemID.FIRE_TALISMAN, ItemID.BODY_TALISMAN,
+		ItemID.COSMIC_TALISMAN, ItemID.CHAOS_TALISMAN, ItemID.ELEMENTAL_TALISMAN,
+		ItemID.NATURE_TALISMAN, ItemID.LAW_TALISMAN, ItemID.DEATH_TALISMAN,
+		ItemID.ELEMENTAL_TALISMAN, ItemID.ELEMENTAL_TALISMAN, ItemID.ELEMENTAL_TALISMAN,
+	};
+
+	// The clickable rune is drawn larger than the native 36x32 item sprite
+	private static final int RUNE_SIZE = 76;
+
 	private final SkedpojkarConfig config;
 	private final ConfigManager configManager;
 	private final Client client;
@@ -161,14 +190,19 @@ public class RuneClickerPanel extends JPanel
 
 	// UI
 	private final JButton runeButton = new JButton();
+	private final ConfettiPane confettiPane = new ConfettiPane();
 	private final JButton goldenButton = new JButton("Golden rune!");
 	private final JLabel pointsLabel = new JLabel("", SwingConstants.CENTER);
 	private final JLabel rateLabel = new JLabel("", SwingConstants.CENTER);
 	private final JLabel feedbackLabel = new JLabel(" ", SwingConstants.CENTER);
 	private final JButton[] upgradeButtons = new JButton[UPGRADE_NAMES.length];
 	private final JLabel[] upgradeLabels = new JLabel[UPGRADE_NAMES.length];
+	private final JLabel[] upgradeIconLabels = new JLabel[UPGRADE_NAMES.length];
+	private int talismanIconTier = -1;
 	private final JButton pouchButton = new JButton("Buy");
 	private final JLabel pouchLabel = new JLabel();
+	private final JLabel pouchIconLabel = new JLabel();
+	private int pouchIconLevel = -1;
 	private final JButton daeyaltButton = new JButton();
 	private final JLabel daeyaltLabel = new JLabel();
 	private final JButton prestigeButton = new JButton();
@@ -190,10 +224,20 @@ public class RuneClickerPanel extends JPanel
 		setLayout(new BorderLayout(0, 8));
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-		// Top: the rune to click, counters, prestige, and the golden rune spot
+		// Top: the rune to click, counters, prestige, and the golden rune spot.
+		// The rune renders as a bare image — no button box around it.
 		runeButton.setFocusPainted(false);
-		runeButton.setPreferredSize(new Dimension(84, 84));
-		runeButton.setMaximumSize(new Dimension(84, 84));
+		runeButton.setContentAreaFilled(false);
+		runeButton.setBorderPainted(false);
+		runeButton.setOpaque(false);
+		runeButton.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+		runeButton.setRolloverEnabled(true);
+		// Fixed size with explicit centering: the hover-grown icon must expand
+		// symmetrically around the center, not push to one side
+		runeButton.setHorizontalAlignment(SwingConstants.CENTER);
+		runeButton.setVerticalAlignment(SwingConstants.CENTER);
+		runeButton.setPreferredSize(new Dimension(130, 118));
+		runeButton.setMaximumSize(new Dimension(130, 118));
 		runeButton.setVerticalTextPosition(SwingConstants.BOTTOM);
 		runeButton.setHorizontalTextPosition(SwingConstants.CENTER);
 		runeButton.addActionListener(e -> onRuneClicked());
@@ -215,11 +259,12 @@ public class RuneClickerPanel extends JPanel
 		JPanel top = new JPanel();
 		top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
 		top.setOpaque(false);
-		for (Component c : new Component[]{runeButton, feedbackLabel, pointsLabel, rateLabel, prestigeButton, goldenButton})
+		confettiPane.add(runeButton);
+		for (Component c : new Component[]{confettiPane, feedbackLabel, pointsLabel, rateLabel, prestigeButton, goldenButton})
 		{
 			((javax.swing.JComponent) c).setAlignmentX(Component.CENTER_ALIGNMENT);
 		}
-		top.add(runeButton);
+		top.add(confettiPane);
 		top.add(feedbackLabel);
 		top.add(pointsLabel);
 		top.add(rateLabel);
@@ -228,10 +273,11 @@ public class RuneClickerPanel extends JPanel
 		top.add(Box.createVerticalStrut(4));
 		top.add(goldenButton);
 		prestigeButton.addActionListener(e -> onPrestige());
-		// Cap widths: long full-digit costs must ellipsize inside the fixed
-		// ~225px sidebar instead of widening the panel (which resizes the client)
-		prestigeButton.setPreferredSize(new Dimension(200, 26));
-		prestigeButton.setMaximumSize(new Dimension(200, 26));
+		// Cap widths: the fixed ~225px sidebar must never be widened (that
+		// resizes the client window). The prestige button is two lines tall so
+		// even huge full-digit costs stay legible.
+		prestigeButton.setPreferredSize(new Dimension(200, 42));
+		prestigeButton.setMaximumSize(new Dimension(200, 42));
 		goldenButton.setMaximumSize(new Dimension(200, 34));
 
 		// Middle: the shop
@@ -246,16 +292,19 @@ public class RuneClickerPanel extends JPanel
 			upgradeButtons[i].addActionListener(e ->
 				buyUpgrade(idx, (e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0));
 			upgradeLabels[i] = new JLabel();
-			shop.add(shopRow(upgradeLabels[i], upgradeButtons[i]));
+			upgradeIconLabels[i] = itemIconLabel(UPGRADE_ICON_IDS[i]);
+			shop.add(shopRow(upgradeIconLabels[i], upgradeLabels[i], upgradeButtons[i]));
 		}
+		pouchIconLabel.setPreferredSize(new Dimension(SHOP_ICON_SIZE + 2, SHOP_ICON_SIZE + 2));
 		pouchButton.addActionListener(e -> buyPouch());
-		shop.add(shopRow(pouchLabel, pouchButton));
+		shop.add(shopRow(pouchIconLabel, pouchLabel, pouchButton));
 		daeyaltButton.addActionListener(e -> onDaeyaltButton());
-		shop.add(shopRow(daeyaltLabel, daeyaltButton));
+		shop.add(shopRow(itemIconLabel(ItemID.DAEYALT_SHARD), daeyaltLabel, daeyaltButton));
 
 		// Runespan perks (hidden until the first ascension)
 		perkHeaderLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
 		perkHeaderLabel.setBorder(BorderFactory.createEmptyBorder(8, 0, 2, 0));
+		perkHeaderLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 		shop.add(perkHeaderLabel);
 		for (int i = 0; i < PERK_NAMES.length; i++)
 		{
@@ -263,13 +312,14 @@ public class RuneClickerPanel extends JPanel
 			perkButtons[i] = new JButton("Buy");
 			perkButtons[i].addActionListener(e -> buyPerk(idx));
 			perkLabels[i] = new JLabel();
-			perkRows[i] = shopRow(perkLabels[i], perkButtons[i]);
+			perkRows[i] = shopRow(itemIconLabel(PERK_ICON_IDS[i]), perkLabels[i], perkButtons[i]);
 			shop.add(perkRows[i]);
 		}
 
 		// Stats at the bottom of the shop
 		statsLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
 		statsLabel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+		statsLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 		shop.add(statsLabel);
 
 		JScrollPane scroll = new JScrollPane(shop,
@@ -288,17 +338,44 @@ public class RuneClickerPanel extends JPanel
 		timer.start();
 	}
 
-	private JPanel shopRow(JLabel label, JButton button)
+	private JPanel shopRow(JLabel iconLabel, JLabel label, JButton button)
 	{
 		JPanel row = new JPanel(new BorderLayout(4, 0));
 		row.setOpaque(false);
+		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 		row.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 66));
 		label.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
 		button.setMargin(new Insets(2, 6, 2, 6));
+		if (iconLabel != null)
+		{
+			row.add(iconLabel, BorderLayout.WEST);
+		}
 		row.add(label, BorderLayout.CENTER);
 		row.add(button, BorderLayout.EAST);
 		return row;
+	}
+
+	/** A small item-sprite label for a shop row. */
+	private JLabel itemIconLabel(int itemId)
+	{
+		JLabel label = new JLabel();
+		label.setPreferredSize(new Dimension(SHOP_ICON_SIZE + 2, SHOP_ICON_SIZE + 2));
+		setItemIcon(label, itemId);
+		return label;
+	}
+
+	private void setItemIcon(JLabel target, int itemId)
+	{
+		AsyncBufferedImage img = itemManager.getImage(itemId);
+		Runnable apply = () ->
+		{
+			target.setIcon(new ImageIcon(img.getScaledInstance(
+				SHOP_ICON_SIZE, SHOP_ICON_SIZE, java.awt.Image.SCALE_SMOOTH)));
+			target.repaint();
+		};
+		apply.run();
+		img.onLoaded(apply);
 	}
 
 	/** The RS profile key whose state is currently loaded in memory. */
@@ -421,6 +498,10 @@ public class RuneClickerPanel extends JPanel
 			gained *= CRIT_MULTIPLIER;
 		}
 		gainPoints(gained);
+		if (crit)
+		{
+			confettiPane.burst();
+		}
 		showFeedback(crit ? "CRIT! +" + format(gained) : "+" + format(gained),
 			crit ? ColorScheme.BRAND_ORANGE : null);
 		checkMilestones();
@@ -946,6 +1027,21 @@ public class RuneClickerPanel extends JPanel
 			}
 		}
 
+		// The talisman icon follows the current tier
+		if (tier != talismanIconTier)
+		{
+			talismanIconTier = tier;
+			setItemIcon(upgradeIconLabels[0], TALISMAN_ICON_IDS[tier]);
+		}
+
+		// The pouch icon shows the next pouch to buy (or the last one when maxed)
+		int pouchIconIdx = Math.min(pouchLevel, POUCH_ICON_IDS.length - 1);
+		if (pouchIconIdx != pouchIconLevel)
+		{
+			pouchIconLevel = pouchIconIdx;
+			setItemIcon(pouchIconLabel, POUCH_ICON_IDS[pouchIconIdx]);
+		}
+
 		if (pouchLevel >= POUCH_NAMES.length)
 		{
 			pouchLabel.setText(html("All pouches owned<br>(x" + (int) Math.pow(2, pouchLevel) + "/click)"));
@@ -1023,16 +1119,14 @@ public class RuneClickerPanel extends JPanel
 		statsLabel.setText(html("Lifetime: " + format(lifetimePoints) + " points, "
 			+ format(totalClicks) + " clicks<br>Prestiges: " + totalPrestiges
 			+ ", Ascensions: " + ascensions
-			+ "<br>Golden runes caught: " + goldenCaught + "/" + goldenSeen));
+			+ "<br>Golden runes caught: " + goldenCaught + "/" + goldenSeen
+			+ "<br><br>Tip: Shift-click a Buy button to buy up to " + BULK_BUY_COUNT + "."));
 
-		if (tier >= MAX_TIER)
-		{
-			prestigeButton.setText("Ascend the Runespan (" + format(prestigeCost()) + ")");
-		}
-		else
-		{
-			prestigeButton.setText("Prestige: " + RUNE_NAMES[tier + 1] + " (" + format(prestigeCost()) + ")");
-		}
+		// Two lines: action on top, full cost below — no hover needed to read it
+		String prestigeLine = tier >= MAX_TIER
+			? "Ascend the Runespan" : "Prestige: " + RUNE_NAMES[tier + 1];
+		prestigeButton.setText("<html><center>" + prestigeLine
+			+ "<br>" + format(prestigeCost()) + "</center></html>");
 		prestigeButton.setToolTipText("Cost: " + format(prestigeCost()) + " points");
 		prestigeButton.setEnabled(points >= prestigeCost());
 	}
@@ -1040,12 +1134,144 @@ public class RuneClickerPanel extends JPanel
 	private void setRuneIcon()
 	{
 		AsyncBufferedImage img = itemManager.getImage(RUNE_ITEM_IDS[tier]);
-		runeButton.setIcon(new ImageIcon(img));
-		img.onLoaded(() ->
+		Runnable apply = () ->
 		{
-			runeButton.setIcon(new ImageIcon(img));
+			// The rune is scaled well above the native sprite size, with three
+			// states: normal, hover (grows 10% — "I'm clickable"), and pressed
+			// (same size as hover but brightened — a flash, not a size jump)
+			int hoverSize = (int) (RUNE_SIZE * 1.1);
+			runeButton.setIcon(scaled(img, RUNE_SIZE));
+			runeButton.setRolloverIcon(scaled(img, hoverSize));
+			runeButton.setPressedIcon(brightened(img, hoverSize));
 			runeButton.repaint();
-		});
+		};
+		apply.run();
+		img.onLoaded(apply);
+	}
+
+	private static ImageIcon scaled(java.awt.Image img, int size)
+	{
+		return new ImageIcon(img.getScaledInstance(size, size, java.awt.Image.SCALE_SMOOTH));
+	}
+
+	/** The same sprite, scaled and slightly brightened — the pressed-state flash. */
+	private static ImageIcon brightened(java.awt.Image img, int size)
+	{
+		java.awt.image.BufferedImage buf = new java.awt.image.BufferedImage(
+			size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+		java.awt.Graphics2D g = buf.createGraphics();
+		g.drawImage(img.getScaledInstance(size, size, java.awt.Image.SCALE_SMOOTH), 0, 0, null);
+		g.dispose();
+		java.awt.image.RescaleOp op = new java.awt.image.RescaleOp(
+			new float[]{1.25f, 1.25f, 1.25f, 1f}, new float[4], null);
+		return new ImageIcon(op.filter(buf, null));
+	}
+
+	/**
+	 * Hosts the rune button and paints crit fire over it: flame-colored embers
+	 * (plus the occasional tiny fire-rune sprite) rise from the rune, drift,
+	 * and fade out over ~a second.
+	 */
+	private class ConfettiPane extends JPanel
+	{
+		// x, y, xVelocity, yVelocity, colorIndex, life (1.0 -> 0), isIcon (0/1)
+		private final java.util.List<double[]> particles = new java.util.ArrayList<>();
+		private final java.awt.Color[] colors = {
+			new java.awt.Color(255, 69, 0), new java.awt.Color(255, 140, 0),
+			new java.awt.Color(255, 200, 60), new java.awt.Color(255, 90, 40),
+			new java.awt.Color(220, 50, 30),
+		};
+		private final Timer animator = new Timer(30, e -> step());
+		private java.awt.Image fireIcon;
+		private boolean fireIconRequested;
+
+		ConfettiPane()
+		{
+			super(new java.awt.GridBagLayout());
+			setOpaque(false);
+			Dimension size = new Dimension(180, 140);
+			setPreferredSize(size);
+			setMaximumSize(size);
+			// NOTE: no itemManager use here — this constructor runs as a field
+			// initializer, before the outer panel's constructor assigns it
+		}
+
+		void burst()
+		{
+			// Lazy-load the fire-rune sprite on first use (itemManager is set by now)
+			if (!fireIconRequested)
+			{
+				fireIconRequested = true;
+				AsyncBufferedImage img = itemManager.getImage(ItemID.FIRE_RUNE);
+				Runnable apply = () ->
+					fireIcon = img.getScaledInstance(14, 14, java.awt.Image.SCALE_SMOOTH);
+				apply.run();
+				img.onLoaded(apply);
+			}
+			double cx = getWidth() / 2.0;
+			double cy = getHeight() / 2.0;
+			for (int i = 0; i < 24; i++)
+			{
+				boolean icon = random.nextInt(5) == 0; // ~20% are fire-rune sprites
+				particles.add(new double[]{
+					cx + (random.nextDouble() - 0.5) * 60, // spread across the rune
+					cy + 10 + random.nextDouble() * 15,    // start near its base
+					(random.nextDouble() - 0.5) * 1.6,     // slight sideways drift
+					-(1.5 + random.nextDouble() * 2.5),    // rising
+					random.nextInt(colors.length),
+					0.8 + random.nextDouble() * 0.4,
+					icon ? 1 : 0,
+				});
+			}
+			if (!animator.isRunning())
+			{
+				animator.start();
+			}
+		}
+
+		private void step()
+		{
+			for (java.util.Iterator<double[]> it = particles.iterator(); it.hasNext(); )
+			{
+				double[] p = it.next();
+				p[0] += p[2] + Math.sin(p[1] * 0.15) * 0.6; // flicker/wobble as it rises
+				p[1] += p[3];
+				p[3] -= 0.05; // buoyancy: embers accelerate upward slightly
+				p[5] -= 0.04;
+				if (p[5] <= 0)
+				{
+					it.remove();
+				}
+			}
+			if (particles.isEmpty())
+			{
+				animator.stop();
+			}
+			repaint();
+		}
+
+		@Override
+		public void paint(java.awt.Graphics g)
+		{
+			super.paint(g); // children (the rune button) first, fire on top
+			java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+			for (double[] p : particles)
+			{
+				g2.setComposite(java.awt.AlphaComposite.getInstance(
+					java.awt.AlphaComposite.SRC_OVER, (float) Math.max(0, Math.min(1, p[5]))));
+				if (p[6] == 1 && fireIcon != null)
+				{
+					g2.drawImage(fireIcon, (int) p[0], (int) p[1], null);
+				}
+				else
+				{
+					g2.setColor(colors[(int) p[4]]);
+					int size = 2 + (int) (p[5] * 4);
+					g2.fillOval((int) p[0], (int) p[1], size, size);
+				}
+			}
+			g2.dispose();
+		}
 	}
 
 	/**
@@ -1055,7 +1281,8 @@ public class RuneClickerPanel extends JPanel
 	 */
 	private static String html(String inner)
 	{
-		return "<html><body style='width:95px'>" + inner + "</body></html>";
+		// Narrower than before: shop rows now also fit a 22px item icon
+		return "<html><body style='width:76px'>" + inner + "</body></html>";
 	}
 
 	/** For per-second/per-click rates, which can be fractional (e.g. 0.5/s). */
