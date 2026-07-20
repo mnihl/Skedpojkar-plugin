@@ -32,8 +32,11 @@ public class FactsPanel extends JPanel
 	private final JTextArea factArea = new JTextArea();
 	private final Random random = new Random();
 
-	public FactsPanel()
+	private final com.skedpojkar.achievements.AchievementManager achievements;
+
+	public FactsPanel(com.skedpojkar.achievements.AchievementManager achievements)
 	{
+		this.achievements = achievements;
 		setLayout(new BorderLayout(0, 8));
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -43,7 +46,13 @@ public class FactsPanel extends JPanel
 		factArea.setOpaque(false);
 
 		JButton nextButton = new JButton("Another fact!");
-		nextButton.addActionListener(e -> showRandomFact());
+		nextButton.addActionListener(e ->
+		{
+			// Only user-requested facts count toward Scholar (not the one
+			// shown automatically when the panel opens)
+			achievements.count(com.skedpojkar.achievements.Achievement.SCHOLAR, 50);
+			showRandomFact();
+		});
 
 		add(factArea, BorderLayout.CENTER);
 		add(nextButton, BorderLayout.SOUTH);

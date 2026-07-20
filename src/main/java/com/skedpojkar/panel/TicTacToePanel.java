@@ -17,6 +17,8 @@ import javax.swing.SwingConstants;
  */
 public class TicTacToePanel extends JPanel
 {
+	private final com.skedpojkar.achievements.AchievementManager achievements;
+
 	private static final int[][] LINES = {
 		{0, 1, 2}, {3, 4, 5}, {6, 7, 8},
 		{0, 3, 6}, {1, 4, 7}, {2, 5, 8},
@@ -30,8 +32,9 @@ public class TicTacToePanel extends JPanel
 
 	private boolean gameOver;
 
-	public TicTacToePanel()
+	public TicTacToePanel(com.skedpojkar.achievements.AchievementManager achievements)
 	{
+		this.achievements = achievements;
 		setLayout(new BorderLayout(0, 8));
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -136,6 +139,10 @@ public class TicTacToePanel extends JPanel
 			if (first != null && first.equals(board[line[1]]) && first.equals(board[line[2]]))
 			{
 				gameOver = true;
+				if (first.equals("X"))
+				{
+					achievements.unlock(com.skedpojkar.achievements.Achievement.TACTICIAN);
+				}
 				status.setText(first.equals("X") ? "You win!" : "The AI wins!");
 				return true;
 			}

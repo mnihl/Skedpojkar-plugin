@@ -1,6 +1,8 @@
 package com.skedpojkar.announce;
 
 import com.skedpojkar.SkedpojkarConfig;
+import com.skedpojkar.achievements.Achievement;
+import com.skedpojkar.achievements.AchievementManager;
 import com.skedpojkar.sound.Sound;
 import com.skedpojkar.sound.SoundEngine;
 import java.util.EnumMap;
@@ -101,6 +103,9 @@ public class AnnouncementTriggers
 	@Inject
 	private ItemManager itemManager;
 
+	@Inject
+	private AchievementManager achievements;
+
 	private final Map<Skill, Integer> previousLevels = new EnumMap<>(Skill.class);
 	private final Map<String, Long> lastPvpHit = new HashMap<>();
 	private final Random random = new Random();
@@ -179,10 +184,13 @@ public class AnnouncementTriggers
 			lastPvpHit.put(Text.standardize(player.getName()), System.currentTimeMillis());
 		}
 
-		if (hitsplat.getAmount() == 0 && config.pvpZeroHitSound()
-			&& random.nextInt(100) < PVP_ZERO_HIT_CHANCE_PERCENT)
+		if (hitsplat.getAmount() == 0)
 		{
-			soundEngine.play(Sound.PVP_ZERO_HIT);
+			achievements.count(Achievement.WHIFF_MASTER, 25);
+			if (config.pvpZeroHitSound() && random.nextInt(100) < PVP_ZERO_HIT_CHANCE_PERCENT)
+			{
+				soundEngine.play(Sound.PVP_ZERO_HIT);
+			}
 		}
 	}
 
@@ -208,10 +216,13 @@ public class AnnouncementTriggers
 		// PvP kill: we damaged this player recently, so count the kill as ours
 		String key = player.getName() == null ? null : Text.standardize(player.getName());
 		Long lastHit = key == null ? null : lastPvpHit.remove(key);
-		if (config.pvpKillSound() && lastHit != null
-			&& System.currentTimeMillis() - lastHit < KILL_ATTRIBUTION_WINDOW_MS)
+		if (lastHit != null && System.currentTimeMillis() - lastHit < KILL_ATTRIBUTION_WINDOW_MS)
 		{
-			soundEngine.play(Sound.PVP_KILL, PVP_KILL_SOUND_DELAY_MS);
+			achievements.count(Achievement.PVP_MENACE, 10);
+			if (config.pvpKillSound())
+			{
+				soundEngine.play(Sound.PVP_KILL, PVP_KILL_SOUND_DELAY_MS);
+			}
 		}
 	}
 
@@ -226,13 +237,21 @@ public class AnnouncementTriggers
 			// messages (Sepulchre, Gauntlet) often arrive as SPAM, not GAMEMESSAGE
 			case GAMEMESSAGE:
 			case SPAM:
-				if (config.sepulchreSound() && message.startsWith(SEPULCHRE_FLOOR_5_MESSAGE))
+				if (message.startsWith(SEPULCHRE_FLOOR_5_MESSAGE))
 				{
-					soundEngine.play(Sound.SEPULCHRE_FLOOR_5);
+					achievements.unlock(Achievement.FLOOR_5_ENJOYER);
+					if (config.sepulchreSound())
+					{
+						soundEngine.play(Sound.SEPULCHRE_FLOOR_5);
+					}
 				}
-				else if (config.goodJobSound() && message.startsWith(GAUNTLET_MESSAGE))
+				else if (message.startsWith(GAUNTLET_MESSAGE))
 				{
-					soundEngine.play(Sound.GOOD_JOB);
+					achievements.unlock(Achievement.CORRUPTED);
+					if (config.goodJobSound())
+					{
+						soundEngine.play(Sound.GOOD_JOB);
+					}
 				}
 				break;
 
@@ -283,6 +302,7 @@ public class AnnouncementTriggers
 		if (pmSequenceProgress >= PM_SEQUENCE_PHRASES.length)
 		{
 			pmSequenceProgress = 0;
+			achievements.unlock(Achievement.THE_SEQUENCE);
 			announce("The secret sequence has been spoken.");
 			soundEngine.play(Sound.PM_SEQUENCE);
 		}
@@ -344,6 +364,7 @@ public class AnnouncementTriggers
 			return;
 		}
 
+		achievements.count(Achievement.TOLL_DODGER, 10);
 		if (config.goodJobSound())
 		{
 			soundEngine.play(Sound.GOOD_JOB);
@@ -379,6 +400,7 @@ public class AnnouncementTriggers
 		}
 		if (!sawOrnatePool || !sawOrnateJewelleryBox)
 		{
+			achievements.unlock(Achievement.HOMEOWNERS_SHAME);
 			announce("Brokie house.");
 		}
 	}
@@ -460,6 +482,7 @@ public class AnnouncementTriggers
 		if (total < config.bankValueThreshold())
 		{
 			bankWarnedThisSession = true;
+			achievements.unlock(Achievement.BROKIE_CERTIFIED);
 			announce("Pfft. Bank value under " + String.format("%,d", config.bankValueThreshold())
 				+ ". Brokie.");
 		}

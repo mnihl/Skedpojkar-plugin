@@ -57,6 +57,9 @@ public class SkedpojkarPlugin extends Plugin
 	private SkedpojkarConfig config;
 
 	@Inject
+	private com.skedpojkar.achievements.AchievementManager achievementManager;
+
+	@Inject
 	private AnnouncementTriggers announcementTriggers;
 
 	@Inject
@@ -76,7 +79,7 @@ public class SkedpojkarPlugin extends Plugin
 		wsClient.registerMessage(PartyGameMessage.class);
 		executor.execute(soundEngine::init);
 
-		panel = new SkedpojkarPanel(config, configManager, client, clientThread, itemManager, partyTicTacToe);
+		panel = new SkedpojkarPanel(config, configManager, client, clientThread, itemManager, partyTicTacToe, achievementManager);
 		navButton = NavigationButton.builder()
 			.tooltip("Skedpojkar")
 			.icon(ImageUtil.loadImageResource(SkedpojkarPlugin.class, "icon.png"))

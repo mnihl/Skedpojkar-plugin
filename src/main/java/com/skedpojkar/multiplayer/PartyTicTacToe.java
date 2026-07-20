@@ -1,5 +1,7 @@
 package com.skedpojkar.multiplayer;
 
+import com.skedpojkar.achievements.Achievement;
+import com.skedpojkar.achievements.AchievementManager;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
@@ -32,6 +34,7 @@ public class PartyTicTacToe
 	};
 
 	private final PartyService partyService;
+	private final AchievementManager achievements;
 	private final String[] board = new String[9];
 
 	/** "X", "O" or "draw" once the game has ended; null while playing. */
@@ -42,9 +45,10 @@ public class PartyTicTacToe
 	private Runnable boardListener;
 
 	@Inject
-	public PartyTicTacToe(PartyService partyService)
+	public PartyTicTacToe(PartyService partyService, AchievementManager achievements)
 	{
 		this.partyService = partyService;
+		this.achievements = achievements;
 	}
 
 	public boolean isInParty()
@@ -135,6 +139,7 @@ public class PartyTicTacToe
 	public void onPartyGameMessage(PartyGameMessage message)
 	{
 		String symbol = symbolFor(message.getMemberId());
+		boolean wonNow = false;
 
 		synchronized (board)
 		{
@@ -151,7 +156,12 @@ public class PartyTicTacToe
 			{
 				board[message.getCell()] = symbol;
 				checkGameEnd();
+				wonNow = winner != null && winner.equals(getLocalSymbol());
 			}
+		}
+		if (wonNow)
+		{
+			achievements.count(Achievement.UNDEFEATED, 5);
 		}
 		notifyBoardChanged();
 	}

@@ -39,12 +39,13 @@ public class SkedpojkarPanel extends PluginPanel
 	}
 
 	public SkedpojkarPanel(SkedpojkarConfig config, ConfigManager configManager, Client client,
-		ClientThread clientThread, ItemManager itemManager, PartyTicTacToe partyTicTacToe)
+		ClientThread clientThread, ItemManager itemManager, PartyTicTacToe partyTicTacToe,
+		com.skedpojkar.achievements.AchievementManager achievements)
 	{
 		super(false);
 		setLayout(new BorderLayout());
 
-		runeClickerPanel = new RuneClickerPanel(config, configManager, client, clientThread, itemManager);
+		runeClickerPanel = new RuneClickerPanel(config, configManager, client, clientThread, itemManager, achievements);
 
 		JTabbedPane tabs = new JTabbedPane();
 		// Small clean font + short titles so all five tabs fit a single row
@@ -52,8 +53,8 @@ public class SkedpojkarPanel extends PluginPanel
 		tabs.setFont(new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.PLAIN, 11));
 		tabs.addTab("Info", new WelcomePanel());
 		tabs.addTab("Clicker", runeClickerPanel);
-		tabs.addTab("TTT", new TicTacToePanel());
-		tabs.addTab("Facts", new FactsPanel());
+		tabs.addTab("TTT", new TicTacToePanel(achievements));
+		tabs.addTab("Facts", new FactsPanel(achievements));
 		tabs.addTab("Party", new MultiplayerPanel(partyTicTacToe));
 
 		add(tabs, BorderLayout.CENTER);

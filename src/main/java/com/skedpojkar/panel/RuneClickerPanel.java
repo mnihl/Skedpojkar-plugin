@@ -1,6 +1,8 @@
 package com.skedpojkar.panel;
 
 import com.skedpojkar.SkedpojkarConfig;
+import com.skedpojkar.achievements.Achievement;
+import com.skedpojkar.achievements.AchievementManager;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -46,7 +48,7 @@ public class RuneClickerPanel extends JPanel
 {
 	private static final String STATE_KEY = "runeClicker";
 	private static final String LEGACY_COOKIE_KEY = "cookieCount";
-	private static final int STATE_VERSION = 3;
+	private static final int STATE_VERSION = 4;
 
 	private static final int BULK_BUY_COUNT = 10;
 
@@ -114,14 +116,6 @@ public class RuneClickerPanel extends JPanel
 	};
 	private static final boolean[] PERK_REPEATABLE = {true, false, false, false, true};
 
-	// Milestones: bit index -> announced once, chat message only (no sound)
-	private static final long[] MILESTONE_LIFETIME_POINTS = {10_000, 1_000_000, 1_000_000_000, 1_000_000_000_000L};
-	private static final int MILESTONE_BIT_CLICKS = 4;      // 1,000 manual clicks
-	private static final int MILESTONE_BIT_PRESTIGE = 5;    // first prestige
-	private static final int MILESTONE_BIT_NATURE = 6;      // reached Nature tier
-	private static final int MILESTONE_BIT_WRATH = 7;       // reached Wrath tier
-	private static final int MILESTONE_BIT_ASCEND = 8;      // first ascension
-	private static final long MILESTONE_CLICKS_NEEDED = 1_000;
 	private static final int NATURE_TIER = 9;
 
 	private static final int AUTOSAVE_EVERY_TICKS = 10;
@@ -161,6 +155,7 @@ public class RuneClickerPanel extends JPanel
 	private final Client client;
 	private final ClientThread clientThread;
 	private final ItemManager itemManager;
+	private final AchievementManager achievements;
 	private final Random random = new Random();
 
 	// Game state (persisted per character)
@@ -176,6 +171,7 @@ public class RuneClickerPanel extends JPanel
 	private long milestoneMask;
 	private long goldenSeen;
 	private long goldenCaught;
+	private long critCount;
 	private final int[] perkCounts = new int[PERK_NAMES.length];
 
 	// Transient state
@@ -189,7 +185,7 @@ public class RuneClickerPanel extends JPanel
 	private int ticksSinceSave;
 
 	// UI
-	private final JButton runeButton = new JButton();
+	private final RuneButton runeButton = new RuneButton();
 	private final ConfettiPane confettiPane = new ConfettiPane();
 	private final JButton goldenButton = new JButton("Golden rune!");
 	private final JLabel pointsLabel = new JLabel("", SwingConstants.CENTER);
@@ -211,36 +207,26 @@ public class RuneClickerPanel extends JPanel
 	private final JLabel[] perkLabels = new JLabel[PERK_NAMES.length];
 	private final JPanel[] perkRows = new JPanel[PERK_NAMES.length];
 	private final JLabel statsLabel = new JLabel();
+	private final JLabel achievementsHeader = new JLabel();
+	private final JLabel[] achievementLabels = new JLabel[Achievement.values().length];
+	private boolean achievementsExpanded;
 
 	public RuneClickerPanel(SkedpojkarConfig config, ConfigManager configManager, Client client,
-		ClientThread clientThread, ItemManager itemManager)
+		ClientThread clientThread, ItemManager itemManager, AchievementManager achievements)
 	{
 		this.config = config;
 		this.configManager = configManager;
 		this.client = client;
 		this.clientThread = clientThread;
 		this.itemManager = itemManager;
+		this.achievements = achievements;
 
 		setLayout(new BorderLayout(0, 8));
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
 		// Top: the rune to click, counters, prestige, and the golden rune spot.
-		// The rune renders as a bare image — no button box around it.
-		runeButton.setFocusPainted(false);
-		runeButton.setContentAreaFilled(false);
-		runeButton.setBorderPainted(false);
-		runeButton.setOpaque(false);
-		runeButton.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-		runeButton.setRolloverEnabled(true);
-		// Fixed size with explicit centering: the hover-grown icon must expand
-		// symmetrically around the center, not push to one side
-		runeButton.setHorizontalAlignment(SwingConstants.CENTER);
-		runeButton.setVerticalAlignment(SwingConstants.CENTER);
-		runeButton.setPreferredSize(new Dimension(130, 118));
-		runeButton.setMaximumSize(new Dimension(130, 118));
-		runeButton.setVerticalTextPosition(SwingConstants.BOTTOM);
-		runeButton.setHorizontalTextPosition(SwingConstants.CENTER);
-		runeButton.addActionListener(e -> onRuneClicked());
+		// The rune is a custom-painted component: bare sprite, smoothly animated
+		// scale (hover grow, press dip), always centered.
 		pointsLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
 		rateLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
 		feedbackLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
@@ -321,6 +307,33 @@ public class RuneClickerPanel extends JPanel
 		statsLabel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
 		statsLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 		shop.add(statsLabel);
+
+		// Achievements list (plugin-wide, viewed here). Collapsed by default;
+		// the header is clickable to expand/collapse.
+		achievementsHeader.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
+		achievementsHeader.setBorder(BorderFactory.createEmptyBorder(10, 0, 2, 0));
+		achievementsHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
+		achievementsHeader.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+		setItemIcon(achievementsHeader, ItemID.CHAMPION_SCROLL);
+		achievementsHeader.addMouseListener(new java.awt.event.MouseAdapter()
+		{
+			@Override
+			public void mouseClicked(java.awt.event.MouseEvent e)
+			{
+				achievementsExpanded = !achievementsExpanded;
+				refreshAchievements();
+			}
+		});
+		shop.add(achievementsHeader);
+		Achievement[] all = Achievement.values();
+		for (int i = 0; i < all.length; i++)
+		{
+			achievementLabels[i] = new JLabel();
+			achievementLabels[i].setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
+			achievementLabels[i].setAlignmentX(Component.LEFT_ALIGNMENT);
+			achievementLabels[i].setBorder(BorderFactory.createEmptyBorder(1, 0, 1, 0));
+			shop.add(achievementLabels[i]);
+		}
 
 		JScrollPane scroll = new JScrollPane(shop,
 			JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
@@ -496,6 +509,7 @@ public class RuneClickerPanel extends JPanel
 		if (crit)
 		{
 			gained *= CRIT_MULTIPLIER;
+			critCount++;
 		}
 		gainPoints(gained);
 		if (crit)
@@ -732,67 +746,85 @@ public class RuneClickerPanel extends JPanel
 		refreshUi();
 	}
 
-	// ---- Milestones (chat messages only, no sounds) ----
+	// ---- Achievements (chat announcements handled by AchievementManager) ----
 
 	private void checkMilestones()
 	{
-		// Don't consume milestones while the game is still loading — the chat
-		// message would be dropped but the "announced" bit set forever
+		// Don't evaluate while the game is loading — unlock announcements
+		// would be dropped, and profile writes may not resolve
 		if (client.getGameState() != GameState.LOGGED_IN)
 		{
 			return;
 		}
-		for (int i = 0; i < MILESTONE_LIFETIME_POINTS.length; i++)
+
+		if (lifetimePoints >= 10_000)
 		{
-			if (lifetimePoints >= MILESTONE_LIFETIME_POINTS[i])
-			{
-				milestone(i, format(MILESTONE_LIFETIME_POINTS[i]) + " lifetime points!");
-			}
+			achievements.unlock(Achievement.POINTS_10K);
 		}
-		if (totalClicks >= MILESTONE_CLICKS_NEEDED)
+		if (lifetimePoints >= 1_000_000)
 		{
-			milestone(MILESTONE_BIT_CLICKS, format(MILESTONE_CLICKS_NEEDED) + " runes clicked by hand. Dedication.");
+			achievements.unlock(Achievement.POINTS_1M);
+		}
+		if (lifetimePoints >= 1_000_000_000)
+		{
+			achievements.unlock(Achievement.POINTS_1B);
+		}
+		if (lifetimePoints >= 1_000_000_000_000L)
+		{
+			achievements.unlock(Achievement.POINTS_1T);
+		}
+		if (totalClicks >= 1_000)
+		{
+			achievements.unlock(Achievement.CLICKS_1K);
 		}
 		if (totalPrestiges >= 1)
 		{
-			milestone(MILESTONE_BIT_PRESTIGE, "First prestige!");
+			achievements.unlock(Achievement.FIRST_PRESTIGE);
 		}
 		if (tier >= NATURE_TIER)
 		{
-			milestone(MILESTONE_BIT_NATURE, "Nature runes reached. Profit at last.");
+			achievements.unlock(Achievement.NATURE_TIER);
 		}
 		if (tier >= MAX_TIER)
 		{
-			milestone(MILESTONE_BIT_WRATH, "Wrath runes. The end of the ladder... unless?");
+			achievements.unlock(Achievement.WRATH_TIER);
 		}
 		if (ascensions >= 1)
 		{
-			milestone(MILESTONE_BIT_ASCEND, "Ascended the Runespan!");
+			achievements.unlock(Achievement.FIRST_ASCENSION);
 		}
-	}
-
-	private void milestone(int bit, String text)
-	{
-		long flag = 1L << bit;
-		if ((milestoneMask & flag) != 0)
+		if (goldenCaught >= 10)
 		{
-			return;
+			achievements.unlock(Achievement.GOLDEN_10);
 		}
-		milestoneMask |= flag;
-
-		if (!config.chatMessagesEnabled())
+		if (goldenCaught >= 50)
 		{
-			return;
+			achievements.unlock(Achievement.GOLDEN_50);
 		}
-		// Chat messages must be added on the client thread, not Swing's
-		clientThread.invokeLater(() ->
+		if (goldenSeen - goldenCaught >= 10)
 		{
-			if (client.getGameState() == GameState.LOGGED_IN)
+			achievements.unlock(Achievement.BUTTERFINGERS);
+		}
+		if (critCount >= 100)
+		{
+			achievements.unlock(Achievement.CRIT_100);
+		}
+		if (pouchLevel >= POUCH_NAMES.length)
+		{
+			achievements.unlock(Achievement.MAXED_POUCHES);
+		}
+		for (int count : upgradeCounts)
+		{
+			if (count >= 50)
 			{
-				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "",
-					"Runeclicker milestone: " + text, null);
+				achievements.unlock(Achievement.BIG_SPENDER);
+				break;
 			}
-		});
+		}
+		if (perkCounts[PERK_ATTUNEMENT] >= 3)
+		{
+			achievements.unlock(Achievement.FULLY_ATTUNED);
+		}
 	}
 
 	// ---- Persistence ----
@@ -850,6 +882,7 @@ public class RuneClickerPanel extends JPanel
 			}
 			goldenSeen = version >= 3 ? Long.parseLong(parts[12]) : 0;
 			goldenCaught = version >= 3 ? Long.parseLong(parts[13]) : 0;
+			critCount = version >= 4 ? Long.parseLong(parts[14]) : 0;
 			stateOwnerKey = loadedProfileKey;
 		}
 		catch (Exception e)
@@ -923,7 +956,7 @@ public class RuneClickerPanel extends JPanel
 			+ "|" + pouchLevel + "|" + (daeyaltOwned ? "1" : "0") + "|" + joinCounts(upgradeCounts)
 			+ "|" + lifetimePoints + "|" + totalClicks + "|" + totalPrestiges
 			+ "|" + milestoneMask + "|" + joinCounts(perkCounts)
-			+ "|" + goldenSeen + "|" + goldenCaught;
+			+ "|" + goldenSeen + "|" + goldenCaught + "|" + critCount;
 		configManager.setRSProfileConfiguration(SkedpojkarConfig.GROUP, STATE_KEY, state);
 	}
 
@@ -960,8 +993,7 @@ public class RuneClickerPanel extends JPanel
 	{
 		if (!loggedIn)
 		{
-			runeButton.setText("Log in");
-			runeButton.setIcon(null);
+			runeButton.setState("Log in", false);
 			pointsLabel.setText("Log in to craft runes.");
 			rateLabel.setText(" ");
 			prestigeButton.setText("Prestige");
@@ -980,7 +1012,7 @@ public class RuneClickerPanel extends JPanel
 			return;
 		}
 
-		runeButton.setText(RUNE_NAMES[tier]);
+		runeButton.setState(RUNE_NAMES[tier], true);
 		setRuneIcon();
 		pointsLabel.setText(format(points) + " points");
 		rateLabel.setText("+" + format(pointsPerClick()) + "/click, +" + format(pointsPerSecondExpected()) + "/s");
@@ -1120,7 +1152,10 @@ public class RuneClickerPanel extends JPanel
 			+ format(totalClicks) + " clicks<br>Prestiges: " + totalPrestiges
 			+ ", Ascensions: " + ascensions
 			+ "<br>Golden runes caught: " + goldenCaught + "/" + goldenSeen
+			+ "<br>Crits landed: " + format(critCount)
 			+ "<br><br>Tip: Shift-click a Buy button to buy up to " + BULK_BUY_COUNT + "."));
+
+		refreshAchievements();
 
 		// Two lines: action on top, full cost below — no hover needed to read it
 		String prestigeLine = tier >= MAX_TIER
@@ -1131,40 +1166,181 @@ public class RuneClickerPanel extends JPanel
 		prestigeButton.setEnabled(points >= prestigeCost());
 	}
 
+	private void refreshAchievements()
+	{
+		java.util.Set<String> unlocked = achievements.getUnlocked();
+		Achievement[] all = Achievement.values();
+		achievementsHeader.setText((achievementsExpanded ? "▼ " : "▶ ")
+			+ "Achievements (" + unlocked.size() + "/" + all.length + ")");
+		achievementsHeader.setToolTipText(achievementsExpanded
+			? "Click to collapse" : "Click to expand");
+
+		for (int i = 0; i < all.length; i++)
+		{
+			achievementLabels[i].setVisible(achievementsExpanded);
+			if (!achievementsExpanded)
+			{
+				continue;
+			}
+			Achievement a = all[i];
+			boolean got = unlocked.contains(a.name());
+			if (got)
+			{
+				achievementLabels[i].setText(html("&#10003; " + a.getDisplayName()));
+				achievementLabels[i].setForeground(ColorScheme.BRAND_ORANGE);
+				achievementLabels[i].setToolTipText(a.getDescription() + " — done!");
+			}
+			else if (a.isSecret())
+			{
+				achievementLabels[i].setText(html("? ???"));
+				achievementLabels[i].setForeground(java.awt.Color.GRAY);
+				achievementLabels[i].setToolTipText("A secret achievement. Figure it out.");
+			}
+			else
+			{
+				achievementLabels[i].setText(html("&#9675; " + a.getDisplayName()));
+				achievementLabels[i].setForeground(java.awt.Color.GRAY);
+				achievementLabels[i].setToolTipText("How: " + a.getDescription());
+			}
+		}
+	}
+
 	private void setRuneIcon()
 	{
 		AsyncBufferedImage img = itemManager.getImage(RUNE_ITEM_IDS[tier]);
-		Runnable apply = () ->
-		{
-			// The rune is scaled well above the native sprite size, with three
-			// states: normal, hover (grows 10% — "I'm clickable"), and pressed
-			// (same size as hover but brightened — a flash, not a size jump)
-			int hoverSize = (int) (RUNE_SIZE * 1.1);
-			runeButton.setIcon(scaled(img, RUNE_SIZE));
-			runeButton.setRolloverIcon(scaled(img, hoverSize));
-			runeButton.setPressedIcon(brightened(img, hoverSize));
-			runeButton.repaint();
-		};
+		Runnable apply = () -> runeButton.setSprite(img);
 		apply.run();
 		img.onLoaded(apply);
 	}
 
-	private static ImageIcon scaled(java.awt.Image img, int size)
+	/**
+	 * The clickable rune: a custom-painted sprite with a smoothly animated
+	 * scale. Hover eases up to 110%, pressing dips to 90% (brightened),
+	 * releasing springs back — always expanding/shrinking around the center.
+	 */
+	private class RuneButton extends javax.swing.JComponent
 	{
-		return new ImageIcon(img.getScaledInstance(size, size, java.awt.Image.SCALE_SMOOTH));
-	}
+		private java.awt.image.BufferedImage sprite;
+		private java.awt.image.BufferedImage brightSprite;
+		private String label = "";
+		private boolean clickable;
+		private boolean hovered;
+		private boolean pressed;
+		private double scale = 1.0;
+		private double targetScale = 1.0;
+		private final Timer anim = new Timer(16, e -> stepAnim());
 
-	/** The same sprite, scaled and slightly brightened — the pressed-state flash. */
-	private static ImageIcon brightened(java.awt.Image img, int size)
-	{
-		java.awt.image.BufferedImage buf = new java.awt.image.BufferedImage(
-			size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
-		java.awt.Graphics2D g = buf.createGraphics();
-		g.drawImage(img.getScaledInstance(size, size, java.awt.Image.SCALE_SMOOTH), 0, 0, null);
-		g.dispose();
-		java.awt.image.RescaleOp op = new java.awt.image.RescaleOp(
-			new float[]{1.25f, 1.25f, 1.25f, 1f}, new float[4], null);
-		return new ImageIcon(op.filter(buf, null));
+		RuneButton()
+		{
+			setPreferredSize(new Dimension(120, 116));
+			setMaximumSize(new Dimension(120, 116));
+			setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+			addMouseListener(new java.awt.event.MouseAdapter()
+			{
+				@Override
+				public void mouseEntered(java.awt.event.MouseEvent e)
+				{
+					hovered = true;
+					setTarget(1.1);
+				}
+
+				@Override
+				public void mouseExited(java.awt.event.MouseEvent e)
+				{
+					hovered = false;
+					pressed = false;
+					setTarget(1.0);
+				}
+
+				@Override
+				public void mousePressed(java.awt.event.MouseEvent e)
+				{
+					if (!clickable)
+					{
+						return;
+					}
+					pressed = true;
+					setTarget(0.9);
+				}
+
+				@Override
+				public void mouseReleased(java.awt.event.MouseEvent e)
+				{
+					boolean wasPressed = pressed;
+					pressed = false;
+					setTarget(hovered ? 1.1 : 1.0);
+					if (wasPressed && clickable && contains(e.getPoint()))
+					{
+						onRuneClicked();
+					}
+				}
+			});
+		}
+
+		void setSprite(java.awt.image.BufferedImage src)
+		{
+			// Copy into a plain ARGB buffer (drawn scaled at paint time) and
+			// derive the brightened pressed-state version once
+			java.awt.image.BufferedImage buf = new java.awt.image.BufferedImage(
+				src.getWidth(), src.getHeight(), java.awt.image.BufferedImage.TYPE_INT_ARGB);
+			java.awt.Graphics2D g = buf.createGraphics();
+			g.drawImage(src, 0, 0, null);
+			g.dispose();
+			sprite = buf;
+			brightSprite = new java.awt.image.RescaleOp(
+				new float[]{1.25f, 1.25f, 1.25f, 1f}, new float[4], null).filter(buf, null);
+			repaint();
+		}
+
+		void setState(String newLabel, boolean nowClickable)
+		{
+			label = newLabel;
+			clickable = nowClickable;
+			repaint();
+		}
+
+		private void setTarget(double target)
+		{
+			targetScale = target;
+			if (!anim.isRunning())
+			{
+				anim.start();
+			}
+		}
+
+		private void stepAnim()
+		{
+			scale += (targetScale - scale) * 0.3; // ease toward target
+			if (Math.abs(scale - targetScale) < 0.004)
+			{
+				scale = targetScale;
+				anim.stop();
+			}
+			repaint();
+		}
+
+		@Override
+		protected void paintComponent(java.awt.Graphics g)
+		{
+			super.paintComponent(g);
+			java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+			g2.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+				java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+
+			int spriteArea = getHeight() - 20; // bottom strip reserved for the label
+			java.awt.image.BufferedImage img = pressed && brightSprite != null ? brightSprite : sprite;
+			if (img != null && clickable)
+			{
+				int size = (int) (RUNE_SIZE * scale);
+				g2.drawImage(img, (getWidth() - size) / 2, (spriteArea - size) / 2, size, size, null);
+			}
+
+			g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
+			g2.setColor(getForeground());
+			java.awt.FontMetrics fm = g2.getFontMetrics();
+			g2.drawString(label, (getWidth() - fm.stringWidth(label)) / 2, getHeight() - 5);
+			g2.dispose();
+		}
 	}
 
 	/**
