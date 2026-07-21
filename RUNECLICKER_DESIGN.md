@@ -23,11 +23,27 @@ Law → Death → Blood → Soul → Wrath
 
 | Tier | Rune | Global income multiplier | Prestige cost (to leave this tier) |
 |---|---|---|---|
-| 0 | Air | ×1 | 10,000 |
-| 1 | Mind | ×2 | 100,000 |
-| 2 | Water | ×4 | 1,000,000 |
-| ... | ... | ×2^tier | 10,000 × 10^tier |
-| 14 | Wrath | ×16,384 | — (max; postgame = big numbers) |
+| 0 | Air | ×1 | 4,470 (level 20 XP) |
+| 1 | Mind | ×2 | ~8,740 (level 26) |
+| ... | ... | ×2^tier | OSRS total XP at mapped level |
+| 9 | Nature | ×512 | ~737,627 (level 70) |
+| 14 | Wrath | ×16,384 | 13,034,431 (level 99 XP) |
+
+Prestige cost uses the **real OSRS experience curve**: the 15 tiers map evenly
+across levels 20 → 99, and the cost is the total XP for that level (via the
+authentic `xpForLevel` formula). This caps the final Ascend at 13,034,431 — a
+grind every RS player recognizes as real-but-achievable — instead of an
+abstract quintillion. The curve is near-constant time per tier with a slightly
+accelerating finish (income ×2/tier slightly outpaces the late cost ratios).
+
+History: originally ×10/tier (diverged wildly, top tier absurd), briefly
+×3/tier, then switched to the OSRS XP curve after review.
+
+## Reset
+
+A "Reset progress" button at the bottom of the tab wipes this character's
+clicker state (points, tiers, upgrades, prestiges, ascensions, counters) after
+a confirmation. Achievements are kept — they're plugin-wide and separate.
 
 The tier multiplier applies to ALL income — clicks and idle — so after a
 prestige the same upgrades at the same prices produce double, and rebuilding

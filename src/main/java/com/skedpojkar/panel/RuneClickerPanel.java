@@ -335,6 +335,19 @@ public class RuneClickerPanel extends JPanel
 			shop.add(achievementLabels[i]);
 		}
 
+		// Destructive reset at the very bottom, out of the way
+		JButton resetButton = new JButton("Reset progress");
+		resetButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+		resetButton.setToolTipText("Wipe this character's Runeclicker progress (achievements kept)");
+		resetButton.addActionListener(e -> onResetProgress());
+		JPanel resetWrap = new JPanel(new BorderLayout());
+		resetWrap.setOpaque(false);
+		resetWrap.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
+		resetWrap.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+		resetWrap.setAlignmentX(Component.LEFT_ALIGNMENT);
+		resetWrap.add(resetButton, BorderLayout.WEST);
+		shop.add(resetWrap);
+
 		JScrollPane scroll = new JScrollPane(shop,
 			JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 		scroll.setBorder(BorderFactory.createEmptyBorder());
@@ -476,9 +489,32 @@ public class RuneClickerPanel extends JPanel
 		return UPGRADE_BASE_COSTS[idx] * Math.pow(1.15, upgradeCounts[idx]);
 	}
 
+	private static final int PRESTIGE_MIN_LEVEL = 20;
+	private static final int PRESTIGE_MAX_LEVEL = 99;
+
+	/**
+	 * Prestige cost follows the real OSRS experience curve: the 15 tiers map
+	 * evenly across levels 20 → 99, so the cost is the total XP for that level.
+	 * The first prestige is ~4,470 (level 20) and the final Ascend is
+	 * 13,034,431 (level 99) — a real grind, but a familiar and achievable one,
+	 * not an abstract quintillion.
+	 */
 	private double prestigeCost()
 	{
-		return 10_000 * Math.pow(10, tier);
+		int level = (int) Math.round(PRESTIGE_MIN_LEVEL
+			+ tier * (PRESTIGE_MAX_LEVEL - PRESTIGE_MIN_LEVEL) / (double) MAX_TIER);
+		return xpForLevel(level);
+	}
+
+	/** Total OSRS experience required to reach the given level. */
+	private static double xpForLevel(int level)
+	{
+		double points = 0;
+		for (int lvl = 1; lvl < level; lvl++)
+		{
+			points += Math.floor(lvl + 300 * Math.pow(2, lvl / 7.0));
+		}
+		return Math.floor(points / 4);
 	}
 
 	private int unspentRunespanPoints()
@@ -934,8 +970,37 @@ public class RuneClickerPanel extends JPanel
 		totalClicks = 0;
 		totalPrestiges = 0;
 		milestoneMask = 0;
+		goldenSeen = 0;
+		goldenCaught = 0;
+		critCount = 0;
+		daeyaltBoostEndMs = 0;
+		daeyaltCooldownEndMs = 0;
+		frenzyEndMs = 0;
 		Arrays.fill(upgradeCounts, 0);
 		Arrays.fill(perkCounts, 0);
+	}
+
+	/** Wipes this character's clicker progress after a double confirmation. */
+	private void onResetProgress()
+	{
+		if (!loggedIn)
+		{
+			return;
+		}
+		int confirm = JOptionPane.showConfirmDialog(this,
+			"Reset ALL Runeclicker progress for this character?\n"
+			+ "Points, tiers, upgrades, prestiges and ascensions will be wiped.\n"
+			+ "This cannot be undone. (Achievements are kept.)",
+			"Reset progress?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+		if (confirm != JOptionPane.YES_OPTION)
+		{
+			return;
+		}
+		resetAll();
+		stateOwnerKey = loadedProfileKey;
+		scheduleNextGolden();
+		saveState();
+		refreshUi();
 	}
 
 	private void saveState()
