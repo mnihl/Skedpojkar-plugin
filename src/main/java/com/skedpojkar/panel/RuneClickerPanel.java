@@ -314,7 +314,7 @@ public class RuneClickerPanel extends JPanel
 		achievementsHeader.setBorder(BorderFactory.createEmptyBorder(10, 0, 2, 0));
 		achievementsHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
 		achievementsHeader.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-		setItemIcon(achievementsHeader, ItemID.CHAMPION_SCROLL);
+		setItemIcon(achievementsHeader, ItemID.FIRE_CAPE);
 		achievementsHeader.addMouseListener(new java.awt.event.MouseAdapter()
 		{
 			@Override
@@ -491,19 +491,22 @@ public class RuneClickerPanel extends JPanel
 
 	private static final int PRESTIGE_MIN_LEVEL = 20;
 	private static final int PRESTIGE_MAX_LEVEL = 99;
+	// Extra growth on top of the XP curve so cost outpaces income (x2/tier),
+	// making each prestige take progressively longer instead of accelerating.
+	private static final double PRESTIGE_TIER_RAMP = 1.4;
 
 	/**
-	 * Prestige cost follows the real OSRS experience curve: the 15 tiers map
-	 * evenly across levels 20 → 99, so the cost is the total XP for that level.
-	 * The first prestige is ~4,470 (level 20) and the final Ascend is
-	 * 13,034,431 (level 99) — a real grind, but a familiar and achievable one,
-	 * not an abstract quintillion.
+	 * Prestige cost is the real OSRS experience for a mapped level (15 tiers
+	 * across levels 20 → 99), scaled by a per-tier ramp so the climb steepens.
+	 * The XP curve alone grows ~1.9x/tier — less than income's x2 — so tiers
+	 * would otherwise get easier; the ramp pushes effective growth to ~2.6x/tier.
+	 * First prestige ~4,470; final Ascend ~870 million.
 	 */
 	private double prestigeCost()
 	{
 		int level = (int) Math.round(PRESTIGE_MIN_LEVEL
 			+ tier * (PRESTIGE_MAX_LEVEL - PRESTIGE_MIN_LEVEL) / (double) MAX_TIER);
-		return xpForLevel(level);
+		return Math.floor(xpForLevel(level) * Math.pow(PRESTIGE_TIER_RAMP, tier));
 	}
 
 	/** Total OSRS experience required to reach the given level. */

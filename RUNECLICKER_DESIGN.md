@@ -29,15 +29,17 @@ Law → Death → Blood → Soul → Wrath
 | 9 | Nature | ×512 | ~737,627 (level 70) |
 | 14 | Wrath | ×16,384 | 13,034,431 (level 99 XP) |
 
-Prestige cost uses the **real OSRS experience curve**: the 15 tiers map evenly
-across levels 20 → 99, and the cost is the total XP for that level (via the
-authentic `xpForLevel` formula). This caps the final Ascend at 13,034,431 — a
-grind every RS player recognizes as real-but-achievable — instead of an
-abstract quintillion. The curve is near-constant time per tier with a slightly
-accelerating finish (income ×2/tier slightly outpaces the late cost ratios).
+Prestige cost is the **real OSRS experience** for a mapped level (15 tiers
+across levels 20 → 99, via the authentic `xpForLevel` formula), scaled by a
+per-tier ramp (`PRESTIGE_TIER_RAMP` = 1.4). The XP curve alone grows ~1.9×/tier
+— just under income's ×2 — so tiers would get *easier*; the ramp pushes
+effective growth to ~2.6×/tier so each prestige takes progressively longer.
+First prestige ~4,470; final Ascend ~870 million. (Sane and RS-flavored, not
+an abstract quintillion.)
 
-History: originally ×10/tier (diverged wildly, top tier absurd), briefly
-×3/tier, then switched to the OSRS XP curve after review.
+History: ×10/tier (diverged, top absurd) → ×3/tier → pure OSRS XP curve (too
+fast, tiers accelerated) → OSRS XP × 1.4^tier ramp after playtesting. Tune the
+ramp constant to steepen (higher) or flatten (toward 1.0) the climb.
 
 ## Reset
 
