@@ -51,12 +51,14 @@ names are created automatically on first start.
 
 A sidebar button (orange spoon) opens a panel with tabs:
 
-- **Runes** — runecrafting clicker: click to craft, buy RS-flavored upgrades
-  (pouches, essence miners, ZMI trips...), prestige through the real rune
-  tiers Air → Wrath (each doubles your clicks), then Ascend the Runespan for
-  a permanent multiplier. Progress saves per character; old cookie-clicker
-  counts migrate into starting points. No offline gains — upgrades only work
-  while you're logged in. See [RUNECLICKER_DESIGN.md](RUNECLICKER_DESIGN.md).
+- **Info** — what everything does, in-panel.
+- **Clicker** — runecrafting idle clicker: click the rune to craft (with crits
+  and catchable golden runes), buy RS-flavored upgrades (pouches, essence
+  miners, ZMI trips...), and prestige through the real rune tiers Air → Wrath,
+  each doubling *all* your income. Beyond Wrath, Ascend the Runespan to spend
+  points on permanent perks. Earn achievements along the way. Progress saves
+  per character; no offline gains (it only runs while you're logged in). See
+  [RUNECLICKER_DESIGN.md](RUNECLICKER_DESIGN.md).
 - **TTT** — tic-tac-toe against a simple AI (win > block > center > random)
 - **Facts** — random facts from a built-in pool
 - **Party** — multiplayer tic-tac-toe (see below)
@@ -100,15 +102,11 @@ Logs are in `~/.runelite/logs/client.log`, under `com.skedpojkar`.
 
 ### Known gaps / not yet verified in-game
 
-- Sepulchre floor 5 and Corrupted Gauntlet triggers (wordings confirmed against
-  real chat messages, firing not yet observed)
+- Sepulchre floor 5 and Corrupted Gauntlet triggers — message matching is in
+  place (both `GAMEMESSAGE` and `SPAM` types), wordings confirmed, but a live
+  firing hasn't been observed
 - Clan broadcast phrases are best-guess — verify against real broadcasts
-- Party TTT turn/win rules with two clients
-- Bundled-sound fallback (playing from the jar rather than the sounds folder)
-- POH object names ("Exit portal", "Ornate pool ...", "Ornate jewellery box")
-  are best-guess — verify by entering a house
-- Bank value uses GE prices (untradeables count as 0); placeholder messages in
-  the PM-sequence, house, and bank triggers still need their real jokes
+- Bank value uses GE prices, so untradeables count as 0
 
 ### Architecture
 
@@ -118,6 +116,9 @@ src/main/java/com/skedpojkar/
 ├── SkedpojkarConfig.java         # Settings panel definition (each method = one setting)
 ├── announce/
 │   └── AnnouncementTriggers.java # @Subscribe event handlers → chat/sound
+├── achievements/
+│   ├── Achievement.java          # Enum of all achievements (ids, descriptions)
+│   └── AchievementManager.java   # Plugin-wide unlock/count tracking, per character
 ├── sound/
 │   ├── Sound.java                # Enum of sounds → expected .wav file names
 │   └── SoundEngine.java          # Bundled + user sounds, playback via AudioPlayer

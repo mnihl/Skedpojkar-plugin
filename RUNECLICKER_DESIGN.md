@@ -1,129 +1,100 @@
-# Runecrafting Clicker — design proposal
+# Runeclicker — design & mechanics
 
-Cookie clicker, RS-modified: click to craft runes, spend points in a shop on
-things that craft for you, prestige to the next rune tier for a permanent
-click multiplier. Replaces (or sits beside) the current Cookies tab.
+Cookie-clicker, RS-modified: click a rune to craft, spend points on upgrades
+that craft for you, and prestige up the rune tiers. Replaces the old cookie
+clicker (existing cookie counts migrate into starting points, once, per
+character). All numbers live as constants at the top of `RuneClickerPanel` and
+are meant to be tuned.
 
 ## Core loop
 
-- The big button is the current rune (its actual game icon). Each click crafts
-  runes worth your **points per click**.
-- Points buy **shop upgrades**: some add to points per click, some generate
-  points per second (idle), even while the panel is closed (while logged in).
-- When you can afford the **prestige cost**, you may reset points and all
-  upgrades to zero; in exchange the button becomes the next rune and your base
-  points per click doubles, permanently.
+- The button is your current rune (real item sprite). Clicking crafts points;
+  each click has a 5% chance to **crit** for ×10.
+- Points buy **shop upgrades**: the talisman adds to points/click; the rest
+  generate points/second (idle). Idle only accrues while logged in.
+- At the **prestige cost** you reset points and upgrades, advance to the next
+  rune, and permanently double *all* income (clicks and idle).
+- **Golden runes** appear every 3–10 min for 10 s; catch one for a points
+  jackpot or a ×7 income frenzy (30 s), 50/50.
+
+## Income
+
+`pointsPerClick = (1 + talismans) × 2^pouches × globalMultiplier`
+`pointsPerSecond = Σ(idle upgrade rate × count) × globalMultiplier + autoClicks`
+`globalMultiplier = 2^tier × 3^attunement` (×2 during Daeyalt, ×7 during frenzy)
+
+So each prestige doubles the whole economy — the same upgrades at the same
+prices then produce double, making rebuilds fast.
 
 ## Prestige tiers
 
-Follow the real Runecrafting unlock order, 15 tiers:
+Real Runecrafting unlock order, 15 tiers: Air, Mind, Water, Earth, Fire, Body,
+Cosmic, Chaos, Astral, Nature, Law, Death, Blood, Soul, Wrath.
 
-Air → Mind → Water → Earth → Fire → Body → Cosmic → Chaos → Astral → Nature →
-Law → Death → Blood → Soul → Wrath
+Cost is the **real OSRS experience** for a mapped level (tiers spread across
+levels 20 → 99 via the authentic `xpForLevel` formula), scaled by a per-tier
+ramp (`PRESTIGE_TIER_RAMP` = 1.4). The XP curve alone grows ~1.9×/tier — under
+income's ×2 — so tiers would get easier; the ramp pushes effective growth to
+~2.6×/tier, so each prestige takes progressively longer. First prestige ~4,470;
+final Ascend ~870 million.
 
-| Tier | Rune | Global income multiplier | Prestige cost (to leave this tier) |
-|---|---|---|---|
-| 0 | Air | ×1 | 4,470 (level 20 XP) |
-| 1 | Mind | ×2 | ~8,740 (level 26) |
-| ... | ... | ×2^tier | OSRS total XP at mapped level |
-| 9 | Nature | ×512 | ~737,627 (level 70) |
-| 14 | Wrath | ×16,384 | 13,034,431 (level 99 XP) |
+History: ×10/tier (diverged) → ×3/tier → pure OSRS XP (too fast) → OSRS XP ×
+1.4^tier after playtesting. Raise the ramp to steepen, lower it to flatten.
 
-Prestige cost is the **real OSRS experience** for a mapped level (15 tiers
-across levels 20 → 99, via the authentic `xpForLevel` formula), scaled by a
-per-tier ramp (`PRESTIGE_TIER_RAMP` = 1.4). The XP curve alone grows ~1.9×/tier
-— just under income's ×2 — so tiers would get *easier*; the ramp pushes
-effective growth to ~2.6×/tier so each prestige takes progressively longer.
-First prestige ~4,470; final Ascend ~870 million. (Sane and RS-flavored, not
-an abstract quintillion.)
+## Ascension (second prestige layer)
 
-History: ×10/tier (diverged, top absurd) → ×3/tier → pure OSRS XP curve (too
-fast, tiers accelerated) → OSRS XP × 1.4^tier ramp after playtesting. Tune the
-ramp constant to steepen (higher) or flatten (toward 1.0) the climb.
+Past Wrath, the prestige button becomes **Ascend the Runespan**: everything
+resets and you gain 1 Runespan point, spent on permanent perks (hidden until
+your first ascension):
 
-## Reset
+- **Wizard Finix's help** — auto-click 1/s per level (repeatable)
+- **Pouch keeper** — pouches survive prestige
+- **Perfect Ourania** — ZMI never fails
+- **Golden magnetism** — golden runes appear twice as often
+- **Runespan attunement** — ×3 all income, repeatable and stacking
 
-A "Reset progress" button at the bottom of the tab wipes this character's
-clicker state (points, tiers, upgrades, prestiges, ascensions, counters) after
-a confirmation. Achievements are kept — they're plugin-wide and separate.
+## Shop upgrades
 
-The tier multiplier applies to ALL income — clicks and idle — so after a
-prestige the same upgrades at the same prices produce double, and rebuilding
-takes roughly half the time. (Originally it only boosted clicks, which made
-prestige feel like starting over; changed after playtesting.)
+Repeatable cost = `baseCost × 1.15^owned`; reset on prestige.
 
-(The friend's example jumped Air → Earth; using the real unlock order gives us
-15 tiers for free and reads as authentically RS. Costs are placeholder — tune
-so each tier takes noticeably longer than the last but idle income keeps it
-moving.)
+| Upgrade | Effect | Base cost |
+|---|---|---|
+| <tier> talisman | +1 point/click | 50 |
+| Rune essence miner | +0.5/s | 200 |
+| Pure essence miner | +2/s | 1,500 |
+| Abyssal leech | +8/s | 10,000 |
+| ZMI altar trips | +30/s, 10% of seconds yield 0 | 75,000 |
+| Wicked hood | +150/s | 400,000 |
 
-## Shop (RS-flavored upgrades)
+One-offs: pouch ladder Small→Colossal (500 / 5k / 50k / 500k / 5M, each ×2
+points/click); Daeyalt shard infusion (25,000, then an activatable ×2-for-60s
+boost on a 5-min cooldown).
 
-Each upgrade is buyable repeatedly; cost scales cookie-clicker style:
-`cost = baseCost × 1.15^owned`. Upgrades reset on prestige.
+## Achievements
 
-| Upgrade | Effect | Base cost | Flavor |
-|---|---|---|---|
-| Chisel-sharpened talisman | +1 point/click | 50 | click upgrade |
-| Small → Colossal pouch (5 stages, one-off each) | ×2 points/click each | 500 / 5k / 50k / 500k / 5M | the real pouch ladder |
-| Rune essence miner | +0.5 points/s | 200 | idle |
-| Pure essence miner | +2 points/s | 1,500 | idle |
-| Abyssal leech | +8 points/s | 10,000 | idle |
-| ZMI altar trips | +30 points/s, but 10% of ticks give 0 (it's random, it's ZMI) | 75,000 | idle, jokey |
-| Wicked hood | +150 points/s | 400,000 | idle |
-| Daeyalt shard infusion | ×2 all income for 60 s, 10 min cooldown (active button) | 25,000 | the "golden cookie" |
+Plugin-wide, not clicker-only — see `achievements/AchievementManager`. Viewed
+in a collapsible section at the bottom of the tab. Clicker achievements cover
+lifetime points, clicks, prestiges, tiers, ascension, golden runes (caught and
+missed), crits, maxed pouches, big spending, and full attunement.
 
-Roughly: clicks dominate early, idle takes over mid-tier, prestige multiplier
-is what actually moves you forward. Exact numbers need play-tuning.
+## Persistence
 
-## UI (fits the narrow sidebar)
+Per character via `setRSProfileConfiguration`, one pipe-delimited string
+(`STATE_KEY`), versioned (currently v4; older saves load with defaults). Points
+are stored as `double`. Autosave every ~10 s and on prestige/purchase.
 
-- Top: rune icon button (click target), points count, points/s readout.
-- Middle: scrollable shop list — name, owned count, cost, buy button;
-  unaffordable entries greyed out.
-- Bottom: prestige button showing next rune + cost, with a confirm click
-  ("Reset everything for Mind runes? This cannot be undone.").
-- Rune icons: RuneLite's `ItemManager.getImage(itemId)` gives real item
-  sprites — no bundled art needed.
+**No offline or logged-out progress.** The panel checks real game state each
+tick: logging out freezes the clicker, logging in loads the character's state
+before any income accrues. Saves refuse to write unless the active character
+matches the loaded state, and a transient missing-save read keeps in-memory
+progress rather than wiping it — these guard against the login-timing wipe bug
+found in an early build.
 
-## Persistence & implementation notes
+A **Reset progress** button (bottom of the tab) wipes clicker state for the
+current character after confirmation; achievements are kept.
 
-- Per character via `setRSProfileConfiguration` (same pattern as the current
-  cookie count). Store one serialized string: `tier|points|upgrade counts...`.
-  Points as `long` (doubling caps at tier 14 → no overflow risk); display
-  formatted (12.3K / 4.5M / 1.2B).
-- Idle tick: one Swing `Timer` at 1 s in the panel adds points/s and refreshes
-  labels. Runs while the client is open regardless of which tab is showing;
-  save to config at most every ~10 s and on shutdown, not every tick.
-- No offline progress (config would allow it via a timestamp, but "your miner
-  worked while you were gone" invites save-scumming complaints; decide later).
-- All purely client-side UI — zero game interaction, no Hub-eligibility
-  concerns.
+## Ideas / not done
 
-## Decisions (settled)
-
-- **Replaces the Cookies tab.** Existing cookie counts migrate into starting
-  points, one-time, per character (the count is read once from the old config
-  key and credited as points).
-- **No offline progress.** Idle income accrues only while the client is open
-  and you're logged in; nothing is earned between sessions.
-- **Second prestige layer: Runespan Ascension (implemented as a perk shop).**
-  Ascending resets everything and grants 1 Runespan point. Points buy
-  permanent perks (1 point each): Wizard Finix's help (auto-click 1/s per
-  level, repeatable), Pouch keeper (pouches survive prestige), Perfect
-  Ourania (ZMI never fails), Golden magnetism (golden runes 2x as often),
-  Runespan attunement (all income x3, repeatable). This replaced the original
-  flat x10-per-ascension idea — decisions beat numbers.
-
-## Also implemented (v2)
-
-- **Golden rune**: appears every 3–10 min for 10 s; clicking gives a points
-  jackpot or a x7 income frenzy for 30 s (50/50).
-- **Crit clicks**: 5% chance of x10 per manual click, with orange feedback.
-- **Milestones**: one-time chat messages (no sounds) for lifetime points
-  (10K/1M/1B/1T), 1,000 manual clicks, first prestige, reaching Nature,
-  reaching Wrath, first ascension. Tracked in a persisted bitmask.
-- **Juice**: click feedback label under the rune ("+208" / "CRIT! +2,080"),
-  stats footer (lifetime points, clicks, prestiges, ascensions), talisman
-  named after the current tier ("Mind talisman").
-- Save format bumped to v2 (v1 saves load with sensible defaults).
+- Party leaderboard (broadcast lifetime points over the party websocket)
+- Buy-max (currently shift-click buys up to 10)
+- Balance pass on mid/late tiers once more players have climbed
