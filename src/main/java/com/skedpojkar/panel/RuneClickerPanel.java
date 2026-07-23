@@ -489,24 +489,27 @@ public class RuneClickerPanel extends JPanel
 		return UPGRADE_BASE_COSTS[idx] * Math.pow(1.15, upgradeCounts[idx]);
 	}
 
+	// The 15 tiers map across levels 20 -> 126, i.e. the OSRS XP curve all the
+	// way to the 200M cap (virtual level 126 = 188,884,740). Spread this wide,
+	// each tier is ~2.15x the last — above income's x2/tier — so the climb
+	// steepens naturally, no artificial ramp needed.
 	private static final int PRESTIGE_MIN_LEVEL = 20;
-	private static final int PRESTIGE_MAX_LEVEL = 99;
-	// Extra growth on top of the XP curve so cost outpaces income (x2/tier),
-	// making each prestige take progressively longer instead of accelerating.
-	private static final double PRESTIGE_TIER_RAMP = 1.4;
+	private static final int PRESTIGE_MAX_LEVEL = 126;
+	// Each completed ascension multiplies all prestige costs, so repeat runs
+	// don't trivialize once attunement (x3 income/level) stacks up. 1.0 disables.
+	private static final double ASCENSION_COST_FACTOR = 2.0;
 
 	/**
-	 * Prestige cost is the real OSRS experience for a mapped level (15 tiers
-	 * across levels 20 → 99), scaled by a per-tier ramp so the climb steepens.
-	 * The XP curve alone grows ~1.9x/tier — less than income's x2 — so tiers
-	 * would otherwise get easier; the ramp pushes effective growth to ~2.6x/tier.
-	 * First prestige ~4,470; final Ascend ~870 million.
+	 * Prestige cost is the real OSRS experience for a mapped level (tiers 0-14
+	 * across levels 20 -> 126), times a per-ascension factor. First prestige
+	 * ~4,470 (level 20); final Ascend ~189 million (level 126, ~the 200M cap),
+	 * before ascension scaling.
 	 */
 	private double prestigeCost()
 	{
 		int level = (int) Math.round(PRESTIGE_MIN_LEVEL
 			+ tier * (PRESTIGE_MAX_LEVEL - PRESTIGE_MIN_LEVEL) / (double) MAX_TIER);
-		return Math.floor(xpForLevel(level) * Math.pow(PRESTIGE_TIER_RAMP, tier));
+		return Math.floor(xpForLevel(level) * Math.pow(ASCENSION_COST_FACTOR, ascensions));
 	}
 
 	/** Total OSRS experience required to reach the given level. */

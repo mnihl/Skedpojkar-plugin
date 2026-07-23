@@ -1,4 +1,4 @@
-# Runeclicker — design & mechanics
+# Runeclicker — design & mechanics (v1.0)
 
 Cookie-clicker, RS-modified: click a rune to craft, spend points on upgrades
 that craft for you, and prestige up the rune tiers. Replaces the old cookie
@@ -31,15 +31,28 @@ prices then produce double, making rebuilds fast.
 Real Runecrafting unlock order, 15 tiers: Air, Mind, Water, Earth, Fire, Body,
 Cosmic, Chaos, Astral, Nature, Law, Death, Blood, Soul, Wrath.
 
-Cost is the **real OSRS experience** for a mapped level (tiers spread across
-levels 20 → 99 via the authentic `xpForLevel` formula), scaled by a per-tier
-ramp (`PRESTIGE_TIER_RAMP` = 1.4). The XP curve alone grows ~1.9×/tier — under
-income's ×2 — so tiers would get easier; the ramp pushes effective growth to
-~2.6×/tier, so each prestige takes progressively longer. First prestige ~4,470;
-final Ascend ~870 million.
+Cost is the **real OSRS experience** for a mapped level, via the authentic
+`xpForLevel` formula. The 15 tiers spread across levels 20 → 126 — i.e. the
+whole XP curve up to the 200M cap (virtual level 126 = 188,884,740). Spread
+this wide, each tier is ~2.15× the last, above income's ×2/tier, so the climb
+steepens on its own (no artificial ramp). The 99 → 126 stretch is the familiar
+post-99 grind, so reaching Ascend is a real haul.
 
-History: ×10/tier (diverged) → ×3/tier → pure OSRS XP (too fast) → OSRS XP ×
-1.4^tier after playtesting. Raise the ramp to steepen, lower it to flatten.
+| Prestige | Level | Cost |
+|---|---|---|
+| Air → Mind | 20 | 4,470 |
+| Fire → Body | 50 | 101,333 |
+| Chaos → Astral | 73 | 992,895 |
+| Law → Death | 96 | 9,684,577 |
+| Wrath → Ascend | 126 | 188,884,740 |
+
+**After ascension** all prestige costs are multiplied by
+`ASCENSION_COST_FACTOR^ascensions` (factor 2.0). Attunement gives ×3 income per
+point, so repeat runs are still faster and stronger, just not trivial. Set the
+factor to 1.0 to disable.
+
+History: ×10/tier (diverged) → ×3/tier → OSRS XP to level 99 (too fast) → OSRS
+XP to level 126 + per-ascension scaling (v1.0).
 
 ## Ascension (second prestige layer)
 

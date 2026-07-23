@@ -1,5 +1,7 @@
 # Skedpojkar
 
+**Version 1.0**
+
 Fun sounds and minigames for you and your clanmates: sound/chat announcements
 for in-game events, side-panel minigames, and party-based multiplayer
 tic-tac-toe.
