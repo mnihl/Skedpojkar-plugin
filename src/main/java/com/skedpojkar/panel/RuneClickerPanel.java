@@ -1,6 +1,8 @@
 package com.skedpojkar.panel;
 
 // Brings the game's constants (RUNE_NAMES, UPGRADE_NAMES, ...) into scope by bare name
+import static com.skedpojkar.clicker.NumberText.format;
+import static com.skedpojkar.clicker.NumberText.formatRate;
 import static com.skedpojkar.clicker.RuneClickerGame.*;
 
 import com.skedpojkar.SkedpojkarConfig;
@@ -124,6 +126,16 @@ public class RuneClickerPanel extends JPanel
 	private final JLabel[] upgradeIconLabels = new JLabel[UPGRADE_NAMES.length];
 	private final JPanel[] upgradeRows = new JPanel[UPGRADE_NAMES.length];
 	private final JLabel lockedHintLabel = new JLabel();
+	// Shop sections fold away when their header is clicked, to keep the long
+	// shop manageable in the narrow sidebar. Not saved: all open on start.
+	private final JLabel upgradeHeaderLabel = new JLabel();
+	private boolean upgradesExpanded = true;
+	private boolean synergiesExpanded = true;
+	private boolean perksExpanded = true;
+	private final JLabel synergyHeaderLabel = new JLabel();
+	private final JButton[] synergyButtons = new JButton[SYNERGY_NAMES.length];
+	private final JLabel[] synergyLabels = new JLabel[SYNERGY_NAMES.length];
+	private final JPanel[] synergyRows = new JPanel[SYNERGY_NAMES.length];
 	private int talismanIconTier = -1;
 	private final JButton pouchButton = new JButton("Buy");
 	private final JLabel pouchLabel = new JLabel();
@@ -200,13 +212,20 @@ public class RuneClickerPanel extends JPanel
 		JPanel shop = new JPanel();
 		shop.setLayout(new BoxLayout(shop, BoxLayout.Y_AXIS));
 		shop.setOpaque(false);
+		upgradeHeaderLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
+		upgradeHeaderLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 2, 0));
+		upgradeHeaderLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+		makeSectionToggle(upgradeHeaderLabel, () -> upgradesExpanded = !upgradesExpanded);
+		shop.add(upgradeHeaderLabel);
 		for (int i = 0; i < UPGRADE_NAMES.length; i++)
 		{
 			final int idx = i;
 			upgradeButtons[i] = new JButton("Buy");
-			upgradeButtons[i].setToolTipText("Shift-click: buy up to " + BULK_BUY_COUNT);
-			upgradeButtons[i].addActionListener(e ->
-				buyUpgrade(idx, (e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0));
+			upgradeButtons[i].setToolTipText("<html>Shift-click: buy up to " + BULK_BUY_COUNT
+				+ "<br>Ctrl-click: buy as many as you can afford</html>");
+			upgradeButtons[i].addActionListener(e -> buyUpgrade(idx,
+				(e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0,
+				(e.getModifiers() & java.awt.event.ActionEvent.CTRL_MASK) != 0));
 			upgradeLabels[i] = new JLabel();
 			upgradeIconLabels[i] = itemIconLabel(UPGRADE_ICON_IDS[i]);
 			upgradeRows[i] = shopRow(upgradeIconLabels[i], upgradeLabels[i], upgradeButtons[i]);
@@ -224,10 +243,29 @@ public class RuneClickerPanel extends JPanel
 		daeyaltButton.addActionListener(e -> onDaeyaltButton());
 		shop.add(shopRow(itemIconLabel(ItemID.DAEYALT_SHARD), daeyaltLabel, daeyaltButton));
 
+		// Synergies: one-off purchases. A row only shows while it can be bought;
+		// owned ones collapse into the header's count and tooltip.
+		synergyHeaderLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
+		synergyHeaderLabel.setBorder(BorderFactory.createEmptyBorder(8, 0, 2, 0));
+		synergyHeaderLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+		makeSectionToggle(synergyHeaderLabel, () -> synergiesExpanded = !synergiesExpanded);
+		shop.add(synergyHeaderLabel);
+		for (int i = 0; i < SYNERGY_NAMES.length; i++)
+		{
+			final int idx = i;
+			synergyButtons[i] = new JButton("Buy");
+			synergyButtons[i].addActionListener(e -> buySynergy(idx));
+			synergyLabels[i] = new JLabel();
+			int iconId = i == SYNERGY_CLICK ? ItemID.AIR_TALISMAN : UPGRADE_ICON_IDS[SYNERGY_TARGETS[i]];
+			synergyRows[i] = shopRow(itemIconLabel(iconId), synergyLabels[i], synergyButtons[i]);
+			shop.add(synergyRows[i]);
+		}
+
 		// Runespan perks (hidden until the first ascension)
 		perkHeaderLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
 		perkHeaderLabel.setBorder(BorderFactory.createEmptyBorder(8, 0, 2, 0));
 		perkHeaderLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+		makeSectionToggle(perkHeaderLabel, () -> perksExpanded = !perksExpanded);
 		shop.add(perkHeaderLabel);
 		for (int i = 0; i < PERK_NAMES.length; i++)
 		{
@@ -299,6 +337,27 @@ public class RuneClickerPanel extends JPanel
 		// Swing timers only fire while the client runs = no offline progress.
 		Timer timer = new Timer(1000, e -> tick());
 		timer.start();
+	}
+
+	/** Makes a section header clickable: a click runs {@code toggle} and redraws. */
+	private void makeSectionToggle(JLabel header, Runnable toggle)
+	{
+		header.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+		header.addMouseListener(new java.awt.event.MouseAdapter()
+		{
+			@Override
+			public void mouseClicked(java.awt.event.MouseEvent e)
+			{
+				toggle.run();
+				refreshUi();
+			}
+		});
+	}
+
+	/** The arrow in front of a foldable section header. */
+	private static String arrow(boolean expanded)
+	{
+		return expanded ? "▼ " : "▶ ";
 	}
 
 	private JPanel shopRow(JLabel iconLabel, JLabel label, JButton button)
@@ -421,9 +480,14 @@ public class RuneClickerPanel extends JPanel
 		nextGoldenAtMs = System.currentTimeMillis() + game.nextGoldenWaitSeconds() * 1000L;
 	}
 
-	private void buyUpgrade(int idx, boolean bulk)
+	private void buyUpgrade(int idx, boolean bulk, boolean max)
 	{
-		if (loggedIn && game.buyUpgrade(idx, bulk) > 0)
+		if (!loggedIn)
+		{
+			return;
+		}
+		int bought = max ? game.buyMaxUpgrade(idx) : game.buyUpgrade(idx, bulk);
+		if (bought > 0)
 		{
 			saveState();
 			refreshUi();
@@ -437,6 +501,26 @@ public class RuneClickerPanel extends JPanel
 			saveState();
 			refreshUi();
 		}
+	}
+
+	private void buySynergy(int idx)
+	{
+		if (loggedIn && game.buySynergy(idx))
+		{
+			saveState();
+			refreshUi();
+		}
+	}
+
+	/** What a synergy does, in one line. */
+	private static String synergyEffect(int idx)
+	{
+		if (idx == SYNERGY_CLICK)
+		{
+			return "Each click also earns " + (int) (SYNERGY_CLICK_SHARE * 100) + "% of one second of building income";
+		}
+		return UPGRADE_NAMES[SYNERGY_TARGETS[idx]] + " +" + (int) SYNERGY_PERCENT_PER_SOURCE
+			+ "% per " + UPGRADE_NAMES[SYNERGY_SOURCES[idx]] + " owned";
 	}
 
 	private void buyPerk(int idx)
@@ -752,6 +836,10 @@ public class RuneClickerPanel extends JPanel
 			{
 				b.setEnabled(false);
 			}
+			for (JButton b : synergyButtons)
+			{
+				b.setEnabled(false);
+			}
 			pouchButton.setEnabled(false);
 			daeyaltButton.setEnabled(false);
 			statsLabel.setText(" ");
@@ -776,7 +864,8 @@ public class RuneClickerPanel extends JPanel
 			+ " (x2 Daeyalt, x" + FRENZY_MULTIPLIER + " frenzy while active) = " + formatRate(gm);
 		rateLabel.setToolTipText("<html>Click: (1 + talismans) x 2^pouches x global"
 			+ " (" + (int) (CRIT_CHANCE * 100) + "% chance of x" + CRIT_MULTIPLIER + " crit)<br>"
-			+ "Idle: sum of buildings (doubled at 10 / 25 / 50 / 100 owned) x global + auto-clicks<br>"
+			+ "Idle: sum of buildings (doubled at 10 / 25 / 50 / 100 owned, boosted by synergies)"
+			+ " x global + auto-clicks<br>"
 			+ gmExplained + "</html>");
 
 		for (int i = 0; i < UPGRADE_NAMES.length; i++)
@@ -786,7 +875,7 @@ public class RuneClickerPanel extends JPanel
 			// ZMI shows its expected yield to agree with the top rate line.
 			// Buildings above the current rune tier aren't sold yet
 			boolean unlocked = game.isUpgradeUnlocked(i);
-			upgradeRows[i].setVisible(unlocked);
+			upgradeRows[i].setVisible(unlocked && upgradesExpanded);
 			if (!unlocked)
 			{
 				continue;
@@ -797,7 +886,13 @@ public class RuneClickerPanel extends JPanel
 			int nextMilestone = nextMilestone(owned);
 			String milestoneLine = "<br>Owning 10 / 25 / 50 / 100 doubles this building (now x" + milestoneMult + ")."
 				+ (nextMilestone > 0 ? " Next doubling at " + nextMilestone + " owned." : "");
-			double idleRate = UPGRADE_IDLE_RATES[i] * milestoneMult * gm * (i == ZMI_INDEX ? game.zmiYieldFactor() : 1);
+			double synergyMult = game.synergyMultiplier(i);
+			if (synergyMult > 1)
+			{
+				milestoneLine += "<br>Synergies: x" + String.format("%.2f", synergyMult) + ".";
+			}
+			double idleRate = UPGRADE_IDLE_RATES[i] * milestoneMult * synergyMult * gm
+				* (i == ZMI_INDEX ? game.zmiYieldFactor() : 1);
 			String effect = i == 0
 				? "+" + formatRate(pouchMultiplier * gm) + "/click"
 				: "+" + formatRate(idleRate) + "/s";
@@ -809,6 +904,7 @@ public class RuneClickerPanel extends JPanel
 			{
 				upgradeLabels[i].setToolTipText("<html>Points/click = (1 + talismans) x 2^pouches x global<br>"
 					+ "= (1 + " + game.getUpgradeCount(0) + ") x " + pouchMultiplier + " x " + formatRate(gm)
+					+ (game.isSynergyOwned(SYNERGY_CLICK) ? " + " + SYNERGY_NAMES[SYNERGY_CLICK] : "")
 					+ " = " + format(game.pointsPerClick(now)) + "<br>" + gmExplained + "</html>");
 			}
 			else if (i == ZMI_INDEX)
@@ -828,8 +924,11 @@ public class RuneClickerPanel extends JPanel
 			}
 		}
 
+		upgradeHeaderLabel.setText(arrow(upgradesExpanded) + "Upgrades");
+		upgradeHeaderLabel.setToolTipText(upgradesExpanded ? "Click to collapse" : "Click to expand");
+
 		int nextLocked = game.nextLockedUpgrade();
-		lockedHintLabel.setVisible(nextLocked >= 0);
+		lockedHintLabel.setVisible(nextLocked >= 0 && upgradesExpanded);
 		if (nextLocked >= 0)
 		{
 			lockedHintLabel.setText(html("??? — unlocks at " + RUNE_NAMES[UPGRADE_UNLOCK_TIERS[nextLocked]] + " runes"));
@@ -894,14 +993,45 @@ public class RuneClickerPanel extends JPanel
 		daeyaltLabel.setToolTipText("<html>While active: ALL income x2 (clicks and idle)<br>for "
 			+ DAEYALT_BOOST_SECONDS + " s, then " + (DAEYALT_COOLDOWN_SECONDS / 60) + " min cooldown.</html>");
 
+		// Synergies: rows for the ones on offer, the rest summed up in the header
+		StringBuilder ownedSynergies = new StringBuilder();
+		int synergiesToBuy = 0;
+		for (int i = 0; i < SYNERGY_NAMES.length; i++)
+		{
+			boolean owned = game.isSynergyOwned(i);
+			boolean show = !owned && game.isSynergyOffered(i);
+			synergyRows[i].setVisible(show && synergiesExpanded);
+			synergiesToBuy += show ? 1 : 0;
+			if (owned)
+			{
+				ownedSynergies.append("<br>").append(SYNERGY_NAMES[i]).append(": ").append(synergyEffect(i));
+			}
+			if (show)
+			{
+				synergyLabels[i].setText(html(SYNERGY_NAMES[i] + "<br>Cost: " + format(SYNERGY_COSTS[i])));
+				synergyLabels[i].setToolTipText("<html>" + synergyEffect(i)
+					+ ".<br>One-off purchase; resets on prestige.</html>");
+				synergyButtons[i].setEnabled(points >= SYNERGY_COSTS[i]);
+			}
+		}
+		int synergiesOwned = game.ownedSynergyCount();
+		synergyHeaderLabel.setVisible(synergiesToBuy > 0 || synergiesOwned > 0);
+		synergyHeaderLabel.setText(html(arrow(synergiesExpanded) + "Synergies — " + synergiesOwned
+			+ " of " + SYNERGY_NAMES.length + " active"
+			+ (!synergiesExpanded && synergiesToBuy > 0 ? " (" + synergiesToBuy + " to buy)" : "")));
+		synergyHeaderLabel.setToolTipText(synergiesOwned > 0
+			? "<html>Active synergies:" + ownedSynergies + "</html>"
+			: "<html>One-off purchases that make buildings boost each other.<br>"
+			+ "More appear as you buy bigger buildings.</html>");
+
 		// Runespan perks: teased before the first ascension, usable after
 		boolean showPerks = game.getAscensions() > 0;
 		int unspent = game.unspentRunespanPoints();
 		perkHeaderLabel.setVisible(true);
 		if (showPerks)
 		{
-			perkHeaderLabel.setText(html("Runespan perks — " + unspent + " point(s)"));
-			perkHeaderLabel.setToolTipText(null);
+			perkHeaderLabel.setText(html(arrow(perksExpanded) + "Runespan perks — " + unspent + " point(s)"));
+			perkHeaderLabel.setToolTipText(perksExpanded ? "Click to collapse" : "Click to expand");
 		}
 		else
 		{
@@ -911,7 +1041,7 @@ public class RuneClickerPanel extends JPanel
 		}
 		for (int i = 0; i < PERK_NAMES.length; i++)
 		{
-			perkRows[i].setVisible(showPerks);
+			perkRows[i].setVisible(showPerks && perksExpanded);
 			if (!showPerks)
 			{
 				continue;
@@ -928,7 +1058,8 @@ public class RuneClickerPanel extends JPanel
 			+ ", Ascensions: " + game.getAscensions()
 			+ "<br>Golden runes caught: " + game.getGoldenCaught() + "/" + game.getGoldenSeen()
 			+ "<br>Crits landed: " + format(game.getCritCount())
-			+ "<br><br>Tip: Shift-click a Buy button to buy up to " + BULK_BUY_COUNT + "."));
+			+ "<br><br>Tip: Shift-click a Buy button to buy up to " + BULK_BUY_COUNT
+			+ ", Ctrl-click to buy as many as you can afford."));
 
 		refreshAchievements();
 
@@ -1237,25 +1368,4 @@ public class RuneClickerPanel extends JPanel
 	}
 
 	/** For per-second/per-click rates, which can be fractional (e.g. 0.5/s). */
-	private static String formatRate(double value)
-	{
-		if (value >= 1_000)
-		{
-			return format(value);
-		}
-		return value == Math.floor(value)
-			? String.valueOf((long) value)
-			: String.format("%.1f", value);
-	}
-
-	private static String format(double value)
-	{
-		// Full digits with thousand separators ("1,000,000"), no suffixes.
-		// Fallback to scientific notation only where long overflows (~9.2e18).
-		if (value < Long.MAX_VALUE)
-		{
-			return String.format("%,d", (long) value);
-		}
-		return String.format("%.2e", value);
-	}
 }

@@ -48,7 +48,8 @@ public class WelcomePanel extends JPanel
 			+ " Air → Wrath — each tier doubles ALL income, so rebuilding is"
 			+ " fast. Beyond Wrath lies the Runespan.");
 		text(content, "Crits, golden runes and milestones await. Shift-click a Buy"
-			+ " button to buy up to 10 at once. Progress is saved per character and"
+			+ " button to buy up to 10 at once, Ctrl-click to buy as many as you"
+			+ " can afford. Progress is saved per character and"
 			+ " only accrues while you're logged in — no offline gains.");
 
 		header(content, "Tic-tac-toe");

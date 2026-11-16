@@ -125,7 +125,8 @@ src/main/java/com/skedpojkar/
 │   ├── ClanBroadcast.java        # Classifies clan broadcasts by wording
 │   └── PmSequence.java           # Secret PM sequence progress
 ├── clicker/
-│   └── RuneClickerGame.java      # Runeclicker rules, numbers and save format (no UI)
+│   ├── RuneClickerGame.java      # Runeclicker rules, numbers and save format (no UI)
+│   └── NumberText.java           # Formats Runeclicker's numbers as full-digit text
 ├── achievements/
 │   ├── Achievement.java          # Enum of all achievements (ids, descriptions)
 │   └── AchievementManager.java   # Plugin-wide unlock/count tracking, per character

@@ -48,24 +48,28 @@ minutes of clicking).
 | Prestige | Level | Cost | Unlocks |
 |---|---|---|---|
 | Air → Mind | 14 | 2,107 | |
-| Mind → Water | 22 | 22,496 | |
-| Water → Earth | 30 | 213,808 | |
-| Earth → Fire | 36 | 1,588,160 | Abyss runner |
-| Fire → Body | 43 | 12,886,784 | |
-| Body → Cosmic | 57 | 208,132,096 | |
-| Cosmic → Chaos | 67 | 2,244,415,488 | Blood altar runner |
-| Chaos → Astral | 88 | 71,856,553,984 | |
-| Astral → Nature | 90 | 350,377,213,952 | |
-| Nature → Law | 95 | 2,299,411,300,352 | Guardians of the Rift |
-| Law → Death | 109 | 36,789,974,728,704 | |
-| Death → Blood | 106 | 109,339,767,472,128 | |
-| Blood → Soul | 103 | 324,957,762,486,272 | Runespan siphon |
-| Soul → Wrath | 116 | ~4.71 quadrillion | |
-| Wrath → Ascend | 112 | ~12.68 quadrillion | |
+| Mind → Water | 24 | 28,112 | |
+| Water → Earth | 31 | 237,328 | |
+| Earth → Fire | 37 | 1,758,272 | Abyss runner |
+| Fire → Body | 45 | 15,747,072 | |
+| Body → Cosmic | 65 | 460,214,272 | |
+| Cosmic → Chaos | 80 | 8,134,934,528 | Blood altar runner |
+| Chaos → Astral | 100 | 235,784,765,440 | |
+| Astral → Nature | 106 | 1,708,433,866,752 | |
+| Nature → Law | 106 | 6,833,735,467,008 | Guardians of the Rift |
+| Law → Death | 120 | 109,338,340,360,192 | |
+| Death → Blood | 118 | 358,776,913,788,928 | |
+| Blood → Soul | 115 | ~1.07 quadrillion | Runespan siphon |
+| Soul → Wrath | 130 | ~18.8 quadrillion | |
+| Wrath → Ascend | 132 | ~91.8 quadrillion | |
 
 The levels are not strictly rising: a tier where a new building has just
 unlocked needs a big jump in cost, the tiers after it less. The cost itself
-always rises.
+always rises. Two levels are above 126, the highest (virtual) level in OSRS;
+the experience formula simply continues past it.
+
+From the fourth run on (three ascensions) the last costs pass what a 64-bit
+whole number holds (~9.2 quintillion); they are still shown with full digits.
 
 **Pacing.** The levels were fitted with `RuneClickerSimulation` so that, for a
 player clicking once a second, each tier takes about 1.3× as long as the one
@@ -75,26 +79,32 @@ little faster):
 
 | Player | First ascension |
 |---|---|
-| Idle only | ~13 h |
+| Idle only | ~13.5 h |
 | 1 click/s | ~11.5 h |
-| 3 clicks/s | ~11 h |
+| 3 clicks/s | ~9.5 h |
+| 6 clicks/s | ~8 h |
 
-Clicking matters most in the early tiers; from about Cosmic on, buildings and
-their milestone doublings carry the income and idle play keeps up.
+Clicking matters most in the early tiers. Later the buildings carry the
+income, but the "Practised hands" synergy ties click value to building
+income, so an active clicker stays ahead through the whole run.
 
-To retune, change a level in the table and rerun the simulation; one level is
-about 10% more cost. Refit after any change to buildings or multipliers.
+To retune, run `RuneClickerSimulation` with the arguments `fit 2.7 1.3 1`
+(hours for the Wrath tier, growth per tier, clicks per second): it prints a
+suggested level table. Or change one level and rerun the pacing table; one
+level is about 10% more cost. Refit after any change to buildings, synergies
+or multipliers.
 
 **After ascension** all prestige costs are multiplied by
 `ASCENSION_COST_FACTOR^ascensions` (factor 5.0). It has to be well above
 attunement's ×3 income per point, otherwise each ascension makes the next run
-easier; at 5.0 the second run takes about 14 hours and the third about 15.
+easier; at 5.0 the second run takes about an hour longer than the first.
 Set the factor to 1.0 to disable.
 
 History: ×10/tier (diverged) → ×3/tier → OSRS XP to level 99 (too fast) → OSRS
 XP to level 126 + per-ascension scaling ×2 (v1.0; late tiers took seconds) →
 fitted level table × 2^tier, ascension ×4 → four more buildings, tier unlocks
-and ownership milestones; refitted table × 4^tier, ascension ×5.
+and ownership milestones; refitted table × 4^tier, ascension ×5 → synergies
+(they cut a run from ~11 h to under 5 h on the old table); table refitted.
 
 ## Ascension (second prestige layer)
 
@@ -110,7 +120,12 @@ your first ascension):
 
 ## Shop upgrades
 
-Repeatable cost = `baseCost × 1.15^owned`; reset on prestige.
+Repeatable cost = `baseCost × 1.15^owned`; reset on prestige. A plain click
+on Buy buys one, Shift-click up to 10, Ctrl-click as many as the points allow.
+
+The Upgrades, Synergies and Runespan perks sections fold away when their
+header is clicked (all open on start; not saved). Numbers are always shown
+with full digits (`NumberText`), however large.
 
 | Upgrade | Effect | Base cost |
 |---|---|---|
@@ -133,6 +148,30 @@ shop shows a "??? — unlocks at X runes" line for the next one.
 double that building's output (`MILESTONE_COUNTS`). Talismans have none.
 Nothing extra is saved for this; it is derived from the counts.
 
+**Synergies:** one-off purchases that make buildings boost each other. Each
+building feeds the next bigger one: with the synergy owned, the target gets
++2% output for every one of the source building owned
+(`SYNERGY_PERCENT_PER_SOURCE`). They reset on prestige like the rest of the
+shop. A synergy is offered once its target's rune tier is reached and at
+least one of the target is owned; the shop shows a row only while it can be
+bought, and owned ones collapse into a "Synergies — n of 9 active" line.
+
+| Synergy | Source → target | Cost |
+|---|---|---|
+| Essence sorting | Rune essence miner → Pure essence miner | 15,000 |
+| Essence bait | Pure essence miner → Abyssal leech | 100,000 |
+| Abyssal shortcuts | Abyssal leech → ZMI altar trips | 750,000 |
+| Ourania offcuts | ZMI altar trips → Wicked hood | 4,000,000 |
+| Hooded runners | Wicked hood → Abyss runner | 24,000,000 |
+| Blood trail | Abyss runner → Blood altar runner | 150,000,000 |
+| Blood for the rift | Blood altar runner → Guardians of the Rift | 900,000,000 |
+| Guardian siphons | Guardians of the Rift → Runespan siphon | 5,400,000,000 |
+| Practised hands | every click also earns 5% of one second of building income | 250,000 |
+
+Building synergies cost 10× the target's base cost. "Practised hands" needs
+any one building; it counts building income before auto-clicks, and crits
+and Wizard Finix's auto-clicks include it.
+
 One-offs: pouch ladder Small→Colossal (500 / 5k / 50k / 500k / 5M, each ×2
 points/click); Daeyalt shard infusion (25,000, then an activatable ×2-for-60s
 boost on a 5-min cooldown).
@@ -147,7 +186,8 @@ missed), crits, maxed pouches, big spending, and full attunement.
 ## Persistence
 
 Per character via `setRSProfileConfiguration`, one pipe-delimited string
-(`STATE_KEY`), versioned (currently v4; older saves load with defaults). Points
+(`STATE_KEY`), versioned (currently v5, which added the owned synergies as a
+bitmask; older saves load with defaults). Points
 are stored as `double`. Autosave every ~10 s and on prestige/purchase.
 
 **No offline or logged-out progress.** The panel checks real game state each
@@ -163,8 +203,5 @@ current character after confirmation; achievements are kept.
 ## Ideas / not done
 
 - Party leaderboard (broadcast lifetime points over the party websocket)
-- Buy-max (currently shift-click buys up to 10)
-- Cross-building synergies (one building boosting another); refit
-  `PRESTIGE_LEVELS` afterwards
 - Idle-only play is slow in the first few tiers (miners are weak next to
-  clicking); late tiers are the reverse, clicking barely matters there
+  clicking)

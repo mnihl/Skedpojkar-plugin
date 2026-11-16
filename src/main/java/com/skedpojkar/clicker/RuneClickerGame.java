@@ -20,7 +20,7 @@ import lombok.Getter;
 @Getter
 public class RuneClickerGame
 {
-	public static final int STATE_VERSION = 4;
+	public static final int STATE_VERSION = 5;
 
 	public static final int BULK_BUY_COUNT = 10;
 
@@ -55,6 +55,30 @@ public class RuneClickerGame
 	// once per threshold reached (so x16 at 100 owned). Not for talismans.
 	public static final int[] MILESTONE_COUNTS = {10, 25, 50, 100};
 	public static final double UPGRADE_COST_GROWTH = 1.15;
+
+	// Synergies: one-off shop purchases that make buildings boost each other.
+	// A building synergy gives its target building +SYNERGY_PERCENT_PER_SOURCE
+	// output for every one of its source building owned — each building feeds
+	// the next bigger one, so the cheap ones stay worth buying. The last entry
+	// is the click synergy: every click also earns a share of one second of
+	// building income, so clicking keeps mattering late. Like the rest of the
+	// shop they reset on prestige. A synergy is offered once its target's rune
+	// tier is reached and at least one of the target is owned.
+	public static final String[] SYNERGY_NAMES = {
+		"Essence sorting", "Essence bait", "Abyssal shortcuts", "Ourania offcuts",
+		"Hooded runners", "Blood trail", "Blood for the rift", "Guardian siphons",
+		"Practised hands",
+	};
+	public static final int[] SYNERGY_SOURCES = {1, 2, 3, 4, 5, 6, 7, 8, -1};
+	public static final int[] SYNERGY_TARGETS = {2, 3, 4, 5, 6, 7, 8, 9, -1};
+	public static final double[] SYNERGY_COSTS = {
+		15_000, 100_000, 750_000, 4_000_000,
+		24_000_000, 150_000_000, 900_000_000, 5_400_000_000d,
+		250_000,
+	};
+	public static final int SYNERGY_CLICK = SYNERGY_NAMES.length - 1;
+	public static final double SYNERGY_PERCENT_PER_SOURCE = 2;
+	public static final double SYNERGY_CLICK_SHARE = 0.05;
 	public static final int ZMI_INDEX = 4;
 	public static final double ZMI_FAIL_CHANCE = 0.10;
 
@@ -105,10 +129,13 @@ public class RuneClickerGame
 	// The levels were fitted with RuneClickerSimulation so each tier takes about
 	// 1.3x as long as the one before. They are not strictly rising: a tier that
 	// unlocks a new building needs a jump, the tiers after it less. What must
-	// rise is the resulting cost (a test checks that). To retune: change a
-	// level, rerun the simulation, read the table. One level is ~10% more cost.
+	// rise is the resulting cost (a test checks that). Levels above 126 are
+	// fine: the experience formula simply continues. To retune: run
+	// RuneClickerSimulation with the arguments "fit 2.7 1.3 1" for a suggested
+	// table, or change a level and read the pacing table. One level is ~10%
+	// more cost.
 	public static final int[] PRESTIGE_LEVELS = {
-		14, 22, 30, 36, 43, 57, 67, 88, 90, 95, 109, 106, 103, 116, 112,
+		14, 24, 31, 37, 45, 65, 80, 100, 106, 106, 120, 118, 115, 130, 132,
 	};
 	public static final double PRESTIGE_TIER_FACTOR = 4.0;
 	// Each completed ascension multiplies all prestige costs. It must be well
@@ -149,6 +176,8 @@ public class RuneClickerGame
 	private long critCount;
 	@Getter(AccessLevel.NONE)
 	private final int[] perkCounts = new int[PERK_NAMES.length];
+	@Getter(AccessLevel.NONE)
+	private final boolean[] synergyOwned = new boolean[SYNERGY_NAMES.length];
 
 	// Not persisted: temporary boosts end when the client closes
 	private long daeyaltBoostEndMs;
@@ -168,6 +197,11 @@ public class RuneClickerGame
 	public int getPerkCount(int idx)
 	{
 		return perkCounts[idx];
+	}
+
+	public boolean isSynergyOwned(int idx)
+	{
+		return synergyOwned[idx];
 	}
 
 	// ---- Income ----
@@ -193,7 +227,12 @@ public class RuneClickerGame
 	public double pointsPerClick(long nowMs)
 	{
 		double base = 1 + upgradeCounts[0];
-		return base * Math.pow(2, pouchLevel) * globalMultiplier(nowMs);
+		double perClick = base * Math.pow(2, pouchLevel);
+		if (synergyOwned[SYNERGY_CLICK])
+		{
+			perClick += SYNERGY_CLICK_SHARE * buildingIncomeExpected();
+		}
+		return perClick * globalMultiplier(nowMs);
 	}
 
 	public double zmiYieldFactor()
@@ -237,20 +276,48 @@ public class RuneClickerGame
 		return UPGRADE_IDLE_RATES[idx] * owned * milestoneMultiplier(owned);
 	}
 
-	/** Expected idle income per second (ZMI at its average yield; auto-clicks included). */
-	public double pointsPerSecondExpected(long nowMs)
+	/**
+	 * What owned synergies multiply this building's output by: 1, plus 2% for
+	 * every source building owned, for each owned synergy that targets it.
+	 */
+	public double synergyMultiplier(int idx)
+	{
+		double percent = 0;
+		for (int s = 0; s < SYNERGY_NAMES.length; s++)
+		{
+			if (synergyOwned[s] && SYNERGY_TARGETS[s] == idx)
+			{
+				percent += SYNERGY_PERCENT_PER_SOURCE * upgradeCounts[SYNERGY_SOURCES[s]];
+			}
+		}
+		return 1 + percent / 100;
+	}
+
+	/**
+	 * What all owned of an idle building produce per second right now:
+	 * milestones and synergies included, before the global multiplier.
+	 */
+	public double buildingRate(int idx)
+	{
+		return buildingOutput(idx, upgradeCounts[idx]) * synergyMultiplier(idx);
+	}
+
+	/** All buildings together per second (ZMI at its average yield), before the global multiplier. */
+	private double buildingIncomeExpected()
 	{
 		double sum = 0;
 		for (int i = 1; i < UPGRADE_NAMES.length; i++)
 		{
-			double rate = buildingOutput(i, upgradeCounts[i]);
-			if (i == ZMI_INDEX)
-			{
-				rate *= zmiYieldFactor();
-			}
-			sum += rate;
+			sum += buildingRate(i) * (i == ZMI_INDEX ? zmiYieldFactor() : 1);
 		}
-		return sum * globalMultiplier(nowMs) + perkCounts[PERK_AUTO_CLICK] * pointsPerClick(nowMs);
+		return sum;
+	}
+
+	/** Expected idle income per second (ZMI at its average yield; auto-clicks included). */
+	public double pointsPerSecondExpected(long nowMs)
+	{
+		return buildingIncomeExpected() * globalMultiplier(nowMs)
+			+ perkCounts[PERK_AUTO_CLICK] * pointsPerClick(nowMs);
 	}
 
 	/** Adds points to both the spendable balance and the lifetime total. */
@@ -284,7 +351,7 @@ public class RuneClickerGame
 		double income = 0;
 		for (int i = 1; i < UPGRADE_NAMES.length; i++)
 		{
-			double rate = buildingOutput(i, upgradeCounts[i]);
+			double rate = buildingRate(i);
 			if (i == ZMI_INDEX && perkCounts[PERK_PERFECT_ZMI] == 0
 				&& random.nextDouble() < ZMI_FAIL_CHANCE)
 			{
@@ -343,6 +410,63 @@ public class RuneClickerGame
 			}
 			points -= cost;
 			upgradeCounts[idx]++;
+			bought++;
+		}
+		return bought;
+	}
+
+	/**
+	 * True once a synergy can be bought: its target building's rune tier is
+	 * reached and at least one of the target is owned (the click synergy needs
+	 * any one building). Says nothing about whether it is already owned.
+	 */
+	public boolean isSynergyOffered(int idx)
+	{
+		if (idx == SYNERGY_CLICK)
+		{
+			for (int i = 1; i < UPGRADE_NAMES.length; i++)
+			{
+				if (upgradeCounts[i] > 0)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+		int target = SYNERGY_TARGETS[idx];
+		return isUpgradeUnlocked(target) && upgradeCounts[target] > 0;
+	}
+
+	public boolean buySynergy(int idx)
+	{
+		if (synergyOwned[idx] || !isSynergyOffered(idx) || points < SYNERGY_COSTS[idx])
+		{
+			return false;
+		}
+		points -= SYNERGY_COSTS[idx];
+		synergyOwned[idx] = true;
+		return true;
+	}
+
+	public int ownedSynergyCount()
+	{
+		int owned = 0;
+		for (boolean b : synergyOwned)
+		{
+			if (b)
+			{
+				owned++;
+			}
+		}
+		return owned;
+	}
+
+	/** Buys as many of an upgrade as the points allow. Returns how many were bought. */
+	public int buyMaxUpgrade(int idx)
+	{
+		int bought = 0;
+		while (buyUpgrade(idx, false) > 0)
+		{
 			bought++;
 		}
 		return bought;
@@ -445,7 +569,7 @@ public class RuneClickerGame
 	/**
 	 * Prestige cost is the real OSRS experience for the tier's level (see
 	 * {@link #PRESTIGE_LEVELS}), times 4^tier, times a per-ascension factor.
-	 * First prestige 2,107 (level 14); final Ascend ~12.7 quadrillion, before
+	 * First prestige 2,107 (level 14); final Ascend ~92 quadrillion, before
 	 * ascension scaling.
 	 */
 	public double prestigeCost()
@@ -492,6 +616,7 @@ public class RuneClickerGame
 
 		points = 0;
 		Arrays.fill(upgradeCounts, 0);
+		Arrays.fill(synergyOwned, false);
 		if (!keepPouches || ascend)
 		{
 			pouchLevel = 0;
@@ -566,6 +691,18 @@ public class RuneClickerGame
 		frenzyEndMs = 0;
 		Arrays.fill(upgradeCounts, 0);
 		Arrays.fill(perkCounts, 0);
+		Arrays.fill(synergyOwned, false);
+	}
+
+	/** An independent copy of the whole state, for trying out purchases (used by the simulation). */
+	RuneClickerGame copy()
+	{
+		RuneClickerGame c = new RuneClickerGame(random);
+		c.load(serialize());
+		c.daeyaltBoostEndMs = daeyaltBoostEndMs;
+		c.daeyaltCooldownEndMs = daeyaltCooldownEndMs;
+		c.frenzyEndMs = frenzyEndMs;
+		return c;
 	}
 
 	/** A new game that starts with some points (the old cookie-clicker migration). */
@@ -583,7 +720,22 @@ public class RuneClickerGame
 			+ "|" + pouchLevel + "|" + (daeyaltOwned ? "1" : "0") + "|" + joinCounts(upgradeCounts)
 			+ "|" + lifetimePoints + "|" + totalClicks + "|" + totalPrestiges
 			+ "|" + milestoneMask + "|" + joinCounts(perkCounts)
-			+ "|" + goldenSeen + "|" + goldenCaught + "|" + critCount;
+			+ "|" + goldenSeen + "|" + goldenCaught + "|" + critCount
+			+ "|" + synergyMask();
+	}
+
+	/** Owned synergies as a number: bit s is set when synergy s is owned. */
+	private int synergyMask()
+	{
+		int mask = 0;
+		for (int s = 0; s < synergyOwned.length; s++)
+		{
+			if (synergyOwned[s])
+			{
+				mask |= 1 << s;
+			}
+		}
+		return mask;
 	}
 
 	/**
@@ -624,6 +776,12 @@ public class RuneClickerGame
 			goldenSeen = version >= 3 ? Long.parseLong(parts[12]) : 0;
 			goldenCaught = version >= 3 ? Long.parseLong(parts[13]) : 0;
 			critCount = version >= 4 ? Long.parseLong(parts[14]) : 0;
+			// v5 added synergies; older saves own none
+			int synergies = version >= 5 ? Integer.parseInt(parts[15]) : 0;
+			for (int s = 0; s < synergyOwned.length; s++)
+			{
+				synergyOwned[s] = (synergies & (1 << s)) != 0;
+			}
 			return true;
 		}
 		catch (RuntimeException e)

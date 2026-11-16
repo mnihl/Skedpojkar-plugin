@@ -88,7 +88,7 @@ public class RuneClickerGameTest
 		{
 			prestigeOnce();
 		}
-		assertEquals(12_886_784, game.prestigeCost(), EXACT); // Fire -> Body: level 43 x 4^4
+		assertEquals(15_747_072, game.prestigeCost(), EXACT); // Fire -> Body: level 45 x 4^4
 		for (int i = 4; i < MAX_TIER; i++)
 		{
 			prestigeOnce();
@@ -162,6 +162,33 @@ public class RuneClickerGameTest
 		assertEquals(3, game.buyUpgrade(0, true));
 		assertEquals(3, game.getUpgradeCount(0));
 		assertEquals(1, game.getPoints(), 1e-6);
+	}
+
+	@Test
+	public void buyMaxSpendsUntilTheNextOneIsUnaffordable()
+	{
+		// Enough for exactly 12 rune essence miners: 200 x (1 + 1.15 + ... + 1.15^11)
+		double twelve = 0;
+		for (int i = 0; i < 12; i++)
+		{
+			twelve += UPGRADE_BASE_COSTS[1] * Math.pow(UPGRADE_COST_GROWTH, i);
+		}
+		game.gainPoints(twelve + 1);
+
+		assertEquals(12, game.buyMaxUpgrade(1));
+
+		assertEquals(12, game.getUpgradeCount(1));
+		assertEquals(1, game.getPoints(), 1e-6);
+		assertTrue(game.getPoints() < game.upgradeCost(1));
+	}
+
+	@Test
+	public void buyMaxBuysNothingWhenBrokeOrLocked()
+	{
+		assertEquals(0, game.buyMaxUpgrade(1));
+		game.gainPoints(1e12);
+		assertEquals("the Abyss runner is locked at Air", 0, game.buyMaxUpgrade(6));
+		assertEquals(1e12, game.getPoints(), EXACT);
 	}
 
 	@Test
@@ -611,6 +638,140 @@ public class RuneClickerGameTest
 		assertEquals(7, game.getGoldenSeen());
 		assertEquals(5, game.getGoldenCaught());
 		assertEquals(0, game.getCritCount());
+	}
+
+	@Test
+	public void loadsVersion4SavesWithNoSynergies()
+	{
+		// v4 predates synergies: everything else is kept, no synergy is owned
+		assertTrue(game.load("4|3|1234.5|1|2|1|1,2,3,4,5,6,7,8,9,10|999.0|42|16|0|1,0,0,0,1|7|5|3"));
+		assertEquals(3, game.getTier());
+		assertEquals(1234.5, game.getPoints(), EXACT);
+		assertEquals(10, game.getUpgradeCount(9));
+		assertEquals(3, game.getCritCount());
+		for (int s = 0; s < SYNERGY_NAMES.length; s++)
+		{
+			assertFalse(game.isSynergyOwned(s));
+		}
+	}
+
+	@Test
+	public void synergiesSurviveASaveAndLoad()
+	{
+		game.gainPoints(1e9);
+		game.buyUpgrade(1, false);
+		game.buyUpgrade(2, false);
+		assertTrue(game.buySynergy(0));
+		assertTrue(game.buySynergy(SYNERGY_CLICK));
+
+		RuneClickerGame loaded = new RuneClickerGame(new FixedRandom());
+		assertTrue(loaded.load(game.serialize()));
+
+		assertTrue(loaded.isSynergyOwned(0));
+		assertTrue(loaded.isSynergyOwned(SYNERGY_CLICK));
+		assertFalse(loaded.isSynergyOwned(1));
+		assertEquals(game.serialize(), loaded.serialize());
+	}
+
+	@Test
+	public void aSynergyIsOnlyOfferedOnceItsTargetIsOwned()
+	{
+		game.gainPoints(1e9);
+		assertFalse(game.isSynergyOffered(0));
+		assertFalse(game.buySynergy(0));
+
+		game.buyUpgrade(2, false);
+		assertTrue(game.isSynergyOffered(0));
+		double before = game.getPoints();
+		assertTrue(game.buySynergy(0));
+		assertEquals(before - SYNERGY_COSTS[0], game.getPoints(), EXACT);
+
+		// One-off: it can't be bought twice
+		assertFalse(game.buySynergy(0));
+		assertEquals(1, game.ownedSynergyCount());
+	}
+
+	@Test
+	public void aSynergyNeedsEnoughPoints()
+	{
+		game.gainPoints(UPGRADE_BASE_COSTS[2] + SYNERGY_COSTS[0] - 1);
+		game.buyUpgrade(2, false);
+		assertFalse(game.buySynergy(0));
+		assertFalse(game.isSynergyOwned(0));
+	}
+
+	@Test
+	public void aBuildingSynergyAddsTwoPercentPerSourceOwned()
+	{
+		game.gainPoints(1e9);
+		for (int i = 0; i < 5; i++)
+		{
+			game.buyUpgrade(1, false);
+		}
+		game.buyUpgrade(2, false);
+		double minersOnly = 5 * UPGRADE_IDLE_RATES[1];
+		assertEquals(minersOnly + UPGRADE_IDLE_RATES[2], game.pointsPerSecondExpected(NOW), 1e-9);
+
+		game.buySynergy(0);
+
+		// 5 rune essence miners give pure essence miners +10%
+		assertEquals(1.10, game.synergyMultiplier(2), 1e-9);
+		assertEquals(1, game.synergyMultiplier(1), EXACT);
+		assertEquals(minersOnly + UPGRADE_IDLE_RATES[2] * 1.10, game.pointsPerSecondExpected(NOW), 1e-9);
+		assertEquals(minersOnly + UPGRADE_IDLE_RATES[2] * 1.10, game.tick(NOW), 1e-9);
+	}
+
+	@Test
+	public void theClickSynergyAddsAShareOfBuildingIncomeToEachClick()
+	{
+		game.gainPoints(1e9);
+		for (int i = 0; i < 4; i++)
+		{
+			game.buyUpgrade(3, false);
+		}
+		double plainClick = game.pointsPerClick(NOW);
+		double buildings = 4 * UPGRADE_IDLE_RATES[3];
+
+		assertTrue(game.buySynergy(SYNERGY_CLICK));
+
+		assertEquals(plainClick + SYNERGY_CLICK_SHARE * buildings, game.pointsPerClick(NOW), 1e-9);
+		// Idle income itself is unchanged
+		assertEquals(buildings, game.pointsPerSecondExpected(NOW), 1e-9);
+	}
+
+	@Test
+	public void lateSynergiesWaitForTheirRuneTier()
+	{
+		// Synergy 4 targets the Abyss runner, which unlocks at Fire
+		assertTrue(game.load("5|3|1.0E12|0|0|0|0,0,0,0,0,1,0,0,0,0|0.0|0|0|0|0|0|0|0|0"));
+		assertFalse(game.isSynergyOffered(4));
+
+		assertTrue(game.load("5|4|1.0E12|0|0|0|0,0,0,0,0,1,1,0,0,0|0.0|0|0|0|0|0|0|0|0"));
+		assertTrue(game.isSynergyOffered(4));
+		assertTrue(game.buySynergy(4));
+		assertEquals(1.02, game.synergyMultiplier(6), 1e-9);
+	}
+
+	@Test
+	public void prestigeRemovesSynergies()
+	{
+		game.gainPoints(1e9);
+		game.buyUpgrade(2, false);
+		game.buySynergy(0);
+		game.gainPoints(game.prestigeCost());
+
+		assertTrue(game.prestige());
+
+		assertFalse(game.isSynergyOwned(0));
+		assertEquals(0, game.ownedSynergyCount());
+	}
+
+	@Test
+	public void everySynergyHasACostSourceAndTarget()
+	{
+		assertEquals(SYNERGY_NAMES.length, SYNERGY_COSTS.length);
+		assertEquals(SYNERGY_NAMES.length, SYNERGY_SOURCES.length);
+		assertEquals(SYNERGY_NAMES.length, SYNERGY_TARGETS.length);
 	}
 
 	@Test
