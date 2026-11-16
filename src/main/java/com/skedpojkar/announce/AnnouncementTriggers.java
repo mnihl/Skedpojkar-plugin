@@ -64,20 +64,13 @@ public class AnnouncementTriggers
 	private static final String SEPULCHRE_FLOOR_5_MESSAGE = "You have completed Floor 5 of the Hallowed Sepulchre";
 	private static final String GAUNTLET_MESSAGE = "Corrupted challenge duration";
 
-	// Clan broadcast phrases. TODO verify against real broadcasts in-game; clans
-	// only broadcast the event types enabled in their clan settings.
-	private static final String CLAN_DEATH_PHRASE = "has been defeated by";
-	private static final String CLAN_DEATH_PHRASE_2 = "has died";
-	private static final String CLAN_KILL_PHRASE = "has defeated";
-	private static final String CLAN_DROP_PHRASE = "received a drop";
-
 	// The secret PM sequence: these phrases must arrive in this order as private
 	// messages (each its own PM, exact match, case-insensitive) to trigger the
 	// reaction. Hardcoded on purpose.
 	private static final String[] PM_SEQUENCE_PHRASES = {
-		"yag",
-		"si",
-		"pilif",
+		"buying",
+		"gf",
+		"10k",
 	};
 
 	// Player-owned-house amenity check. Object names verified in-game 2026-07-18:
@@ -111,7 +104,7 @@ public class AnnouncementTriggers
 	private final Random random = new Random();
 
 	private WorldPoint lastTickPosition;
-	private int pmSequenceProgress;
+	private final PmSequence pmSequence = new PmSequence(PM_SEQUENCE_PHRASES);
 	private boolean bankWarnedThisSession;
 
 	// POH scan state, reset on every region load
@@ -131,7 +124,7 @@ public class AnnouncementTriggers
 			previousLevels.clear();
 			lastPvpHit.clear();
 			lastTickPosition = null;
-			pmSequenceProgress = 0;
+			pmSequence.reset();
 			bankWarnedThisSession = false;
 		}
 		else if (event.getGameState() == GameState.LOADING)
@@ -281,27 +274,11 @@ public class AnnouncementTriggers
 		}
 	}
 
-	/**
-	 * Advances through the hardcoded secret phrase sequence: each incoming PM
-	 * must exactly match the next phrase (case-insensitive). A wrong message
-	 * resets progress (or counts as a fresh start if it matches the first
-	 * phrase). Completing the sequence triggers the reaction.
-	 */
+	/** Feeds an incoming PM to the secret sequence; completing it triggers the reaction. */
 	private void handlePrivateMessage(String message)
 	{
-		String msg = message.trim();
-		if (msg.equalsIgnoreCase(PM_SEQUENCE_PHRASES[pmSequenceProgress]))
+		if (pmSequence.advance(message))
 		{
-			pmSequenceProgress++;
-		}
-		else
-		{
-			pmSequenceProgress = msg.equalsIgnoreCase(PM_SEQUENCE_PHRASES[0]) ? 1 : 0;
-		}
-
-		if (pmSequenceProgress >= PM_SEQUENCE_PHRASES.length)
-		{
-			pmSequenceProgress = 0;
 			achievements.unlock(Achievement.THE_SEQUENCE);
 			announce("The secret sequence has been spoken.");
 			soundEngine.play(Sound.PM_SEQUENCE);
@@ -310,19 +287,28 @@ public class AnnouncementTriggers
 
 	private void handleClanBroadcast(String message)
 	{
-		// Deaths first: "X has been defeated by Y" must not match the kill phrase
-		if (config.clanDeathSound()
-			&& (message.contains(CLAN_DEATH_PHRASE) || message.contains(CLAN_DEATH_PHRASE_2)))
+		switch (ClanBroadcast.classify(message))
 		{
-			soundEngine.play(Sound.CLAN_DEATH);
-		}
-		else if (config.clanKillSound() && message.contains(CLAN_KILL_PHRASE))
-		{
-			soundEngine.play(Sound.CLAN_KILL);
-		}
-		else if (config.clanDropSound() && message.contains(CLAN_DROP_PHRASE))
-		{
-			soundEngine.play(Sound.CLAN_DROP);
+			case DEATH:
+				if (config.clanDeathSound())
+				{
+					soundEngine.play(Sound.CLAN_DEATH);
+				}
+				break;
+			case KILL:
+				if (config.clanKillSound())
+				{
+					soundEngine.play(Sound.CLAN_KILL);
+				}
+				break;
+			case DROP:
+				if (config.clanDropSound())
+				{
+					soundEngine.play(Sound.CLAN_DROP);
+				}
+				break;
+			default:
+				break;
 		}
 	}
 

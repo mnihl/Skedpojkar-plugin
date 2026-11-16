@@ -99,7 +99,11 @@ Extension Pack for Java; IntelliJ works too).
 
 Run [SkedpojkarPluginTest.java](src/test/java/com/skedpojkar/SkedpojkarPluginTest.java)'s
 `main` method (VM option `-ea` required) to boot a RuneLite client with the
-plugin loaded. `./gradlew build` verifies compilation without launching.
+plugin loaded. `./gradlew build` compiles and runs the unit tests without
+launching. The tests cover the rules (Runeclicker maths and saves, tic-tac-toe,
+chat matching), not the UI. To see how long each Runeclicker tier takes for a
+simulated player, run the `main` method of
+[RuneClickerSimulation.java](src/test/java/com/skedpojkar/clicker/RuneClickerSimulation.java).
 Logs are in `~/.runelite/logs/client.log`, under `com.skedpojkar`.
 
 ### Known gaps / not yet verified in-game
@@ -117,7 +121,11 @@ src/main/java/com/skedpojkar/
 ├── SkedpojkarPlugin.java         # Entry point: wires everything up in startUp()/shutDown()
 ├── SkedpojkarConfig.java         # Settings panel definition (each method = one setting)
 ├── announce/
-│   └── AnnouncementTriggers.java # @Subscribe event handlers → chat/sound
+│   ├── AnnouncementTriggers.java # @Subscribe event handlers → chat/sound
+│   ├── ClanBroadcast.java        # Classifies clan broadcasts by wording
+│   └── PmSequence.java           # Secret PM sequence progress
+├── clicker/
+│   └── RuneClickerGame.java      # Runeclicker rules, numbers and save format (no UI)
 ├── achievements/
 │   ├── Achievement.java          # Enum of all achievements (ids, descriptions)
 │   └── AchievementManager.java   # Plugin-wide unlock/count tracking, per character
@@ -126,7 +134,8 @@ src/main/java/com/skedpojkar/
 │   └── SoundEngine.java          # Bundled + user sounds, playback via AudioPlayer
 ├── multiplayer/
 │   ├── PartyGameMessage.java     # The message relayed between party members
-│   └── PartyTicTacToe.java       # Shared board state + game rules + party send/receive
+│   ├── PartyTicTacToe.java       # Shared board state + party send/receive
+│   └── TicTacToeRules.java       # Win/draw/turn rules, shared with the solo tab
 └── panel/
     ├── SkedpojkarPanel.java      # The sidebar panel (tab container)
     └── *Panel.java               # One class per tab, plain Java Swing

@@ -1,14 +1,17 @@
 package com.skedpojkar.panel;
 
+// Brings the game's constants (RUNE_NAMES, UPGRADE_NAMES, ...) into scope by bare name
+import static com.skedpojkar.clicker.RuneClickerGame.*;
+
 import com.skedpojkar.SkedpojkarConfig;
 import com.skedpojkar.achievements.Achievement;
 import com.skedpojkar.achievements.AchievementManager;
+import com.skedpojkar.clicker.RuneClickerGame;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
-import java.util.Arrays;
 import java.util.Random;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -48,75 +51,13 @@ public class RuneClickerPanel extends JPanel
 {
 	private static final String STATE_KEY = "runeClicker";
 	private static final String LEGACY_COOKIE_KEY = "cookieCount";
-	private static final int STATE_VERSION = 4;
 
-	private static final int BULK_BUY_COUNT = 10;
-
-	private static final String[] RUNE_NAMES = {
-		"Air", "Mind", "Water", "Earth", "Fire", "Body", "Cosmic", "Chaos",
-		"Astral", "Nature", "Law", "Death", "Blood", "Soul", "Wrath",
-	};
 	private static final int[] RUNE_ITEM_IDS = {
 		ItemID.AIR_RUNE, ItemID.MIND_RUNE, ItemID.WATER_RUNE, ItemID.EARTH_RUNE,
 		ItemID.FIRE_RUNE, ItemID.BODY_RUNE, ItemID.COSMIC_RUNE, ItemID.CHAOS_RUNE,
 		ItemID.ASTRAL_RUNE, ItemID.NATURE_RUNE, ItemID.LAW_RUNE, ItemID.DEATH_RUNE,
 		ItemID.BLOOD_RUNE, ItemID.SOUL_RUNE, ItemID.WRATH_RUNE,
 	};
-	private static final int MAX_TIER = RUNE_NAMES.length - 1;
-
-	// Repeatable shop upgrades: cost = base * 1.15^owned. Index 0 adds to
-	// points per click; the rest generate points per second. The talisman is
-	// named after the current tier's rune ("Mind talisman", ...).
-	private static final String[] UPGRADE_NAMES = {
-		"talisman", "Rune essence miner", "Pure essence miner",
-		"Abyssal leech", "ZMI altar trips", "Wicked hood",
-	};
-	private static final double[] UPGRADE_BASE_COSTS = {50, 200, 1_500, 10_000, 75_000, 400_000};
-	private static final double[] UPGRADE_IDLE_RATES = {0, 0.5, 2, 8, 30, 150};
-	private static final int ZMI_INDEX = 4;
-	private static final double ZMI_FAIL_CHANCE = 0.10;
-
-	// One-off pouch ladder: each stage doubles points per click
-	private static final String[] POUCH_NAMES = {"Small pouch", "Medium pouch", "Large pouch", "Giant pouch", "Colossal pouch"};
-	private static final double[] POUCH_COSTS = {500, 5_000, 50_000, 500_000, 5_000_000};
-
-	// Daeyalt shard infusion: one-off purchase, then an activatable x2 boost
-	private static final double DAEYALT_COST = 25_000;
-	private static final int DAEYALT_BOOST_SECONDS = 60;
-	private static final int DAEYALT_COOLDOWN_SECONDS = 300;
-
-	// Clicks have a small chance to crit for x10
-	private static final double CRIT_CHANCE = 0.05;
-	private static final int CRIT_MULTIPLIER = 10;
-
-	// Golden rune: appears at a random interval, stays clickable briefly.
-	// Reward is a points jackpot or a temporary x7 frenzy, 50/50.
-	private static final int GOLDEN_MIN_WAIT_S = 180;
-	private static final int GOLDEN_EXTRA_WAIT_S = 420;
-	private static final int GOLDEN_VISIBLE_S = 10;
-	private static final int FRENZY_SECONDS = 30;
-	private static final int FRENZY_MULTIPLIER = 7;
-
-	// Runespan perks, bought with points earned by ascending (1 each).
-	// AUTO_CLICK and ATTUNEMENT are repeatable; the rest are one-offs.
-	private static final int PERK_AUTO_CLICK = 0;
-	private static final int PERK_POUCH_KEEPER = 1;
-	private static final int PERK_PERFECT_ZMI = 2;
-	private static final int PERK_GOLDEN_MAGNET = 3;
-	private static final int PERK_ATTUNEMENT = 4;
-	private static final String[] PERK_NAMES = {
-		"Wizard Finix's help", "Pouch keeper", "Perfect Ourania", "Golden magnetism", "Runespan attunement",
-	};
-	private static final String[] PERK_DESCRIPTIONS = {
-		"Auto-clicks the rune once per second per level (full click value).",
-		"Pouches survive prestige.",
-		"ZMI altar trips never fail.",
-		"Golden runes appear twice as often.",
-		"All income x3, permanently. Stacks.",
-	};
-	private static final boolean[] PERK_REPEATABLE = {true, false, false, false, true};
-
-	private static final int NATURE_TIER = 9;
 
 	private static final int AUTOSAVE_EVERY_TICKS = 10;
 	private static final long CLICK_FEEDBACK_MS = 1_500;
@@ -158,27 +99,12 @@ public class RuneClickerPanel extends JPanel
 	private final AchievementManager achievements;
 	private final Random random = new Random();
 
-	// Game state (persisted per character)
-	private int tier;
-	private double points;
-	private int ascensions;
-	private final int[] upgradeCounts = new int[UPGRADE_NAMES.length];
-	private int pouchLevel;
-	private boolean daeyaltOwned;
-	private double lifetimePoints;
-	private long totalClicks;
-	private int totalPrestiges;
-	private long milestoneMask;
-	private long goldenSeen;
-	private long goldenCaught;
-	private long critCount;
-	private final int[] perkCounts = new int[PERK_NAMES.length];
+	// The game itself (rules and saved state) lives in RuneClickerGame; this
+	// panel only draws it, forwards clicks to it, and saves it.
+	private final RuneClickerGame game = new RuneClickerGame(random);
 
-	// Transient state
+	// Transient UI state
 	private boolean loggedIn;
-	private long daeyaltBoostEndMs;
-	private long daeyaltCooldownEndMs;
-	private long frenzyEndMs;
 	private long nextGoldenAtMs;
 	private long goldenVisibleUntilMs;
 	private long clickFeedbackUntilMs;
@@ -436,108 +362,7 @@ public class RuneClickerPanel extends JPanel
 		refreshUi();
 	}
 
-	// ---- Game logic ----
-
-	/**
-	 * Applies to ALL income, clicks and idle alike: x2 per rune tier, x3 per
-	 * Runespan attunement perk, x2 during Daeyalt, x7 during a golden frenzy.
-	 */
-	private double globalMultiplier()
-	{
-		double mult = Math.pow(2, tier) * Math.pow(3, perkCounts[PERK_ATTUNEMENT]);
-		long now = System.currentTimeMillis();
-		if (now < daeyaltBoostEndMs)
-		{
-			mult *= 2;
-		}
-		if (now < frenzyEndMs)
-		{
-			mult *= FRENZY_MULTIPLIER;
-		}
-		return mult;
-	}
-
-	private double pointsPerClick()
-	{
-		double base = 1 + upgradeCounts[0];
-		return base * Math.pow(2, pouchLevel) * globalMultiplier();
-	}
-
-	private double zmiYieldFactor()
-	{
-		return perkCounts[PERK_PERFECT_ZMI] > 0 ? 1 : 1 - ZMI_FAIL_CHANCE;
-	}
-
-	/** Expected idle income per second (ZMI at its average yield; auto-clicks included). */
-	private double pointsPerSecondExpected()
-	{
-		double sum = 0;
-		for (int i = 1; i < UPGRADE_NAMES.length; i++)
-		{
-			double rate = UPGRADE_IDLE_RATES[i] * upgradeCounts[i];
-			if (i == ZMI_INDEX)
-			{
-				rate *= zmiYieldFactor();
-			}
-			sum += rate;
-		}
-		return sum * globalMultiplier() + perkCounts[PERK_AUTO_CLICK] * pointsPerClick();
-	}
-
-	private double upgradeCost(int idx)
-	{
-		return UPGRADE_BASE_COSTS[idx] * Math.pow(1.15, upgradeCounts[idx]);
-	}
-
-	// The 15 tiers map across levels 20 -> 126, i.e. the OSRS XP curve all the
-	// way to the 200M cap (virtual level 126 = 188,884,740). Spread this wide,
-	// each tier is ~2.15x the last — above income's x2/tier — so the climb
-	// steepens naturally, no artificial ramp needed.
-	private static final int PRESTIGE_MIN_LEVEL = 20;
-	private static final int PRESTIGE_MAX_LEVEL = 126;
-	// Each completed ascension multiplies all prestige costs, so repeat runs
-	// don't trivialize once attunement (x3 income/level) stacks up. 1.0 disables.
-	private static final double ASCENSION_COST_FACTOR = 2.0;
-
-	/**
-	 * Prestige cost is the real OSRS experience for a mapped level (tiers 0-14
-	 * across levels 20 -> 126), times a per-ascension factor. First prestige
-	 * ~4,470 (level 20); final Ascend ~189 million (level 126, ~the 200M cap),
-	 * before ascension scaling.
-	 */
-	private double prestigeCost()
-	{
-		int level = (int) Math.round(PRESTIGE_MIN_LEVEL
-			+ tier * (PRESTIGE_MAX_LEVEL - PRESTIGE_MIN_LEVEL) / (double) MAX_TIER);
-		return Math.floor(xpForLevel(level) * Math.pow(ASCENSION_COST_FACTOR, ascensions));
-	}
-
-	/** Total OSRS experience required to reach the given level. */
-	private static double xpForLevel(int level)
-	{
-		double points = 0;
-		for (int lvl = 1; lvl < level; lvl++)
-		{
-			points += Math.floor(lvl + 300 * Math.pow(2, lvl / 7.0));
-		}
-		return Math.floor(points / 4);
-	}
-
-	private int unspentRunespanPoints()
-	{
-		int spent = 0;
-		for (int c : perkCounts)
-		{
-			spent += c;
-		}
-		return ascensions - spent;
-	}
-
-	private void gainPoints(double amount)
-	{
-		points += amount;
-		lifetimePoints += amount;
-	}
+	// ---- Player actions (the rules themselves live in RuneClickerGame) ----
 
 	private void onRuneClicked()
 	{
@@ -545,21 +370,13 @@ public class RuneClickerPanel extends JPanel
 		{
 			return;
 		}
-		totalClicks++;
-		double gained = pointsPerClick();
-		boolean crit = random.nextDouble() < CRIT_CHANCE;
-		if (crit)
-		{
-			gained *= CRIT_MULTIPLIER;
-			critCount++;
-		}
-		gainPoints(gained);
-		if (crit)
+		RuneClickerGame.Click click = game.click(System.currentTimeMillis());
+		if (click.crit)
 		{
 			confettiPane.burst();
 		}
-		showFeedback(crit ? "CRIT! +" + format(gained) : "+" + format(gained),
-			crit ? ColorScheme.BRAND_ORANGE : null);
+		showFeedback(click.crit ? "CRIT! +" + format(click.gained) : "+" + format(click.gained),
+			click.crit ? ColorScheme.BRAND_ORANGE : null);
 		checkMilestones();
 		refreshUi();
 	}
@@ -573,19 +390,14 @@ public class RuneClickerPanel extends JPanel
 		{
 			return;
 		}
-		goldenCaught++;
 
-		if (random.nextBoolean())
+		double jackpot = game.catchGolden(System.currentTimeMillis());
+		if (jackpot > 0)
 		{
-			// Jackpot: a solid chunk relative to your economy
-			double jackpot = Math.max(pointsPerClick() * 50, pointsPerSecondExpected() * 300);
-			jackpot = Math.max(jackpot, 500); // floor for early game
-			gainPoints(jackpot);
 			showFeedback("Golden rune! +" + format(jackpot), ColorScheme.BRAND_ORANGE);
 		}
 		else
 		{
-			frenzyEndMs = System.currentTimeMillis() + FRENZY_SECONDS * 1000L;
 			showFeedback("FRENZY! x" + FRENZY_MULTIPLIER + " for " + FRENZY_SECONDS + " s", ColorScheme.BRAND_ORANGE);
 		}
 		checkMilestones();
@@ -595,34 +407,12 @@ public class RuneClickerPanel extends JPanel
 
 	private void scheduleNextGolden()
 	{
-		int wait = GOLDEN_MIN_WAIT_S + random.nextInt(GOLDEN_EXTRA_WAIT_S);
-		if (perkCounts[PERK_GOLDEN_MAGNET] > 0)
-		{
-			wait /= 2;
-		}
-		nextGoldenAtMs = System.currentTimeMillis() + wait * 1000L;
+		nextGoldenAtMs = System.currentTimeMillis() + game.nextGoldenWaitSeconds() * 1000L;
 	}
 
 	private void buyUpgrade(int idx, boolean bulk)
 	{
-		if (!loggedIn)
-		{
-			return;
-		}
-		int toBuy = bulk ? BULK_BUY_COUNT : 1;
-		boolean bought = false;
-		for (int i = 0; i < toBuy; i++)
-		{
-			double cost = upgradeCost(idx);
-			if (points < cost)
-			{
-				break;
-			}
-			points -= cost;
-			upgradeCounts[idx]++;
-			bought = true;
-		}
-		if (bought)
+		if (loggedIn && game.buyUpgrade(idx, bulk) > 0)
 		{
 			saveState();
 			refreshUi();
@@ -631,91 +421,62 @@ public class RuneClickerPanel extends JPanel
 
 	private void buyPouch()
 	{
-		if (!loggedIn || pouchLevel >= POUCH_NAMES.length || points < POUCH_COSTS[pouchLevel])
+		if (loggedIn && game.buyPouch())
 		{
-			return;
+			saveState();
+			refreshUi();
 		}
-		points -= POUCH_COSTS[pouchLevel];
-		pouchLevel++;
-		saveState();
-		refreshUi();
 	}
 
 	private void buyPerk(int idx)
 	{
-		if (!loggedIn || unspentRunespanPoints() < 1
-			|| (!PERK_REPEATABLE[idx] && perkCounts[idx] > 0))
+		if (loggedIn && game.buyPerk(idx))
 		{
-			return;
+			saveState();
+			refreshUi();
 		}
-		perkCounts[idx]++;
-		saveState();
-		refreshUi();
 	}
 
+	/** One button, two jobs: buys the infusion, then activates it once owned. */
 	private void onDaeyaltButton()
 	{
 		if (!loggedIn)
 		{
 			return;
 		}
-		long now = System.currentTimeMillis();
-		if (!daeyaltOwned)
+		if (!game.isDaeyaltOwned())
 		{
-			if (points < DAEYALT_COST)
+			if (!game.buyDaeyalt())
 			{
 				return;
 			}
-			points -= DAEYALT_COST;
-			daeyaltOwned = true;
 			saveState();
 		}
-		else if (now >= daeyaltCooldownEndMs)
+		else
 		{
-			daeyaltBoostEndMs = now + DAEYALT_BOOST_SECONDS * 1000L;
-			daeyaltCooldownEndMs = now + DAEYALT_COOLDOWN_SECONDS * 1000L;
+			game.activateDaeyalt(System.currentTimeMillis());
 		}
 		refreshUi();
 	}
 
 	private void onPrestige()
 	{
-		if (!loggedIn || points < prestigeCost())
+		if (!loggedIn || !game.canPrestige())
 		{
 			return;
 		}
 
-		boolean ascend = tier >= MAX_TIER;
-		boolean keepPouches = perkCounts[PERK_POUCH_KEEPER] > 0;
-		String warning = ascend
+		boolean keepPouches = game.getPerkCount(PERK_POUCH_KEEPER) > 0;
+		String warning = game.isAscensionNext()
 			? "Ascend the Runespan? EVERYTHING resets (back to Air runes), but you gain 1 Runespan point to spend on permanent perks."
-			: "Prestige to " + RUNE_NAMES[tier + 1] + " runes? Points and upgrades reset"
+			: "Prestige to " + RUNE_NAMES[game.getTier() + 1] + " runes? Points and upgrades reset"
 			+ (keepPouches ? " (pouches kept)" : "") + "; ALL income doubles permanently.";
 		if (JOptionPane.showConfirmDialog(this, warning, "Are you sure?", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION)
 		{
 			return;
 		}
 
-		points = 0;
-		Arrays.fill(upgradeCounts, 0);
-		if (!keepPouches || ascend)
-		{
-			pouchLevel = 0;
-		}
-		daeyaltOwned = false;
-		daeyaltBoostEndMs = 0;
-		daeyaltCooldownEndMs = 0;
-		frenzyEndMs = 0;
-		totalPrestiges++;
-		if (ascend)
-		{
-			tier = 0;
-			ascensions++;
-		}
-		else
-		{
-			tier++;
-		}
+		game.prestige();
 		checkMilestones();
 		saveState();
 		refreshUi();
@@ -745,24 +506,10 @@ public class RuneClickerPanel extends JPanel
 			return;
 		}
 
-		double income = 0;
-		for (int i = 1; i < UPGRADE_NAMES.length; i++)
-		{
-			double rate = UPGRADE_IDLE_RATES[i] * upgradeCounts[i];
-			if (i == ZMI_INDEX && perkCounts[PERK_PERFECT_ZMI] == 0
-				&& random.nextDouble() < ZMI_FAIL_CHANCE)
-			{
-				rate = 0; // it's random, it's ZMI
-			}
-			income += rate;
-		}
-		income *= globalMultiplier();
-		// Wizard Finix clicks for you (full click value, crits not included)
-		income += perkCounts[PERK_AUTO_CLICK] * pointsPerClick();
-		gainPoints(income);
+		long now = System.currentTimeMillis();
+		game.tick(now);
 
 		// Golden rune appearance/expiry
-		long now = System.currentTimeMillis();
 		if (goldenButton.isVisible() && now > goldenVisibleUntilMs)
 		{
 			goldenButton.setVisible(false);
@@ -772,7 +519,7 @@ public class RuneClickerPanel extends JPanel
 		{
 			goldenVisibleUntilMs = now + GOLDEN_VISIBLE_S * 1000L;
 			goldenButton.setVisible(true);
-			goldenSeen++;
+			game.goldenAppeared();
 		}
 
 		if (now > clickFeedbackUntilMs)
@@ -799,6 +546,7 @@ public class RuneClickerPanel extends JPanel
 			return;
 		}
 
+		double lifetimePoints = game.getLifetimePoints();
 		if (lifetimePoints >= 10_000)
 		{
 			achievements.unlock(Achievement.POINTS_10K);
@@ -815,61 +563,61 @@ public class RuneClickerPanel extends JPanel
 		{
 			achievements.unlock(Achievement.POINTS_1T);
 		}
-		if (totalClicks >= 1_000)
+		if (game.getTotalClicks() >= 1_000)
 		{
 			achievements.unlock(Achievement.CLICKS_1K);
 		}
-		if (totalPrestiges >= 1)
+		if (game.getTotalPrestiges() >= 1)
 		{
 			achievements.unlock(Achievement.FIRST_PRESTIGE);
 		}
-		if (tier >= NATURE_TIER)
+		if (game.getTier() >= NATURE_TIER)
 		{
 			achievements.unlock(Achievement.NATURE_TIER);
 		}
-		if (tier >= MAX_TIER)
+		if (game.getTier() >= MAX_TIER)
 		{
 			achievements.unlock(Achievement.WRATH_TIER);
 		}
-		if (ascensions >= 1)
+		if (game.getAscensions() >= 1)
 		{
 			achievements.unlock(Achievement.FIRST_ASCENSION);
 		}
-		if (goldenCaught >= 10)
+		if (game.getGoldenCaught() >= 10)
 		{
 			achievements.unlock(Achievement.GOLDEN_10);
 		}
-		if (goldenCaught >= 50)
+		if (game.getGoldenCaught() >= 50)
 		{
 			achievements.unlock(Achievement.GOLDEN_50);
 		}
-		if (goldenSeen - goldenCaught >= 10)
+		if (game.getGoldenSeen() - game.getGoldenCaught() >= 10)
 		{
 			achievements.unlock(Achievement.BUTTERFINGERS);
 		}
-		if (critCount >= 100)
+		if (game.getCritCount() >= 100)
 		{
 			achievements.unlock(Achievement.CRIT_100);
 		}
-		if (pouchLevel >= POUCH_NAMES.length)
+		if (game.hasAllPouches())
 		{
 			achievements.unlock(Achievement.MAXED_POUCHES);
 		}
-		for (int count : upgradeCounts)
+		for (int i = 0; i < UPGRADE_NAMES.length; i++)
 		{
-			if (count >= 50)
+			if (game.getUpgradeCount(i) >= 50)
 			{
 				achievements.unlock(Achievement.BIG_SPENDER);
 				break;
 			}
 		}
-		if (perkCounts[PERK_ATTUNEMENT] >= 3)
+		if (game.getPerkCount(PERK_ATTUNEMENT) >= 3)
 		{
 			achievements.unlock(Achievement.FULLY_ATTUNED);
 		}
 	}
 
-	// ---- Persistence ----
+	// ---- Persistence (the save format itself lives in RuneClickerGame) ----
 
 	private void loadState()
 	{
@@ -879,8 +627,7 @@ public class RuneClickerPanel extends JPanel
 			// A missing save for a profile we already hold real progress for is
 			// almost certainly a transient read failure during login — keep the
 			// in-memory state instead of wiping it with a fresh one
-			if (loadedProfileKey != null && loadedProfileKey.equals(stateOwnerKey)
-				&& (lifetimePoints > 0 || tier > 0 || totalClicks > 0))
+			if (loadedProfileKey != null && loadedProfileKey.equals(stateOwnerKey) && game.hasProgress())
 			{
 				log.warn("Saved Runeclicker state missing for profile {} but in-memory progress exists — keeping it", loadedProfileKey);
 				saveState();
@@ -894,96 +641,32 @@ public class RuneClickerPanel extends JPanel
 			return;
 		}
 
-		try
+		if (!game.load(stored))
 		{
-			String[] parts = stored.split("\\|");
-			int version = Integer.parseInt(parts[0]);
-			tier = Integer.parseInt(parts[1]);
-			points = Double.parseDouble(parts[2]);
-			ascensions = Integer.parseInt(parts[3]);
-			pouchLevel = Integer.parseInt(parts[4]);
-			daeyaltOwned = "1".equals(parts[5]);
-			parseCounts(parts[6], upgradeCounts);
-
-			if (version >= 2)
-			{
-				lifetimePoints = Double.parseDouble(parts[7]);
-				totalClicks = Long.parseLong(parts[8]);
-				totalPrestiges = Integer.parseInt(parts[9]);
-				milestoneMask = Long.parseLong(parts[10]);
-				parseCounts(parts[11], perkCounts);
-			}
-			else
-			{
-				// v1 predates lifetime/milestone/perk tracking
-				lifetimePoints = points;
-				totalClicks = 0;
-				totalPrestiges = tier + ascensions;
-				milestoneMask = 0;
-				Arrays.fill(perkCounts, 0);
-			}
-			goldenSeen = version >= 3 ? Long.parseLong(parts[12]) : 0;
-			goldenCaught = version >= 3 ? Long.parseLong(parts[13]) : 0;
-			critCount = version >= 4 ? Long.parseLong(parts[14]) : 0;
-			stateOwnerKey = loadedProfileKey;
+			log.warn("Corrupt rune clicker state, starting fresh: {}", stored);
 		}
-		catch (Exception e)
-		{
-			log.warn("Corrupt rune clicker state, starting fresh: {}", stored, e);
-			resetAll();
-			stateOwnerKey = loadedProfileKey;
-		}
-	}
-
-	private static void parseCounts(String csv, int[] target)
-	{
-		String[] counts = csv.split(",");
-		for (int i = 0; i < target.length; i++)
-		{
-			target[i] = i < counts.length ? Integer.parseInt(counts[i]) : 0;
-		}
+		stateOwnerKey = loadedProfileKey;
 	}
 
 	/** One-time migration: old cookie counts become starting points. */
 	private void migrateFromCookies()
 	{
-		resetAll();
 		String cookies = configManager.getRSProfileConfiguration(SkedpojkarConfig.GROUP, LEGACY_COOKIE_KEY);
 		if (cookies == null)
 		{
 			cookies = configManager.getConfiguration(SkedpojkarConfig.GROUP, LEGACY_COOKIE_KEY);
 		}
+		double startingPoints;
 		try
 		{
-			points = cookies == null ? 0 : Long.parseLong(cookies);
+			startingPoints = cookies == null ? 0 : Long.parseLong(cookies);
 		}
 		catch (NumberFormatException e)
 		{
-			points = 0;
+			startingPoints = 0;
 		}
-		lifetimePoints = points;
+		game.resetWithStartingPoints(startingPoints);
 		saveState();
-	}
-
-	private void resetAll()
-	{
-		tier = 0;
-		points = 0;
-		ascensions = 0;
-		pouchLevel = 0;
-		daeyaltOwned = false;
-		lifetimePoints = 0;
-		totalClicks = 0;
-		totalPrestiges = 0;
-		milestoneMask = 0;
-		goldenSeen = 0;
-		goldenCaught = 0;
-		critCount = 0;
-		daeyaltBoostEndMs = 0;
-		daeyaltCooldownEndMs = 0;
-		frenzyEndMs = 0;
-		Arrays.fill(upgradeCounts, 0);
-		Arrays.fill(perkCounts, 0);
 	}
 
 	/** Wipes this character's clicker progress after a double confirmation. */
@@ -1002,7 +685,7 @@ public class RuneClickerPanel extends JPanel
 		{
 			return;
 		}
-		resetAll();
+		game.reset();
 		stateOwnerKey = loadedProfileKey;
 		scheduleNextGolden();
 		saveState();
@@ -1023,26 +706,7 @@ public class RuneClickerPanel extends JPanel
 			return;
 		}
 		ticksSinceSave = 0;
-		String state = STATE_VERSION + "|" + tier + "|" + points + "|" + ascensions
-			+ "|" + pouchLevel + "|" + (daeyaltOwned ? "1" : "0") + "|" + joinCounts(upgradeCounts)
-			+ "|" + lifetimePoints + "|" + totalClicks + "|" + totalPrestiges
-			+ "|" + milestoneMask + "|" + joinCounts(perkCounts)
-			+ "|" + goldenSeen + "|" + goldenCaught + "|" + critCount;
-		configManager.setRSProfileConfiguration(SkedpojkarConfig.GROUP, STATE_KEY, state);
-	}
-
-	private static String joinCounts(int[] counts)
-	{
-		StringBuilder sb = new StringBuilder();
-		for (int i = 0; i < counts.length; i++)
-		{
-			if (i > 0)
-			{
-				sb.append(',');
-			}
-			sb.append(counts[i]);
-		}
-		return sb.toString();
+		configManager.setRSProfileConfiguration(SkedpojkarConfig.GROUP, STATE_KEY, game.serialize());
 	}
 
 	// ---- UI ----
@@ -1057,7 +721,7 @@ public class RuneClickerPanel extends JPanel
 	private String upgradeDisplayName(int i)
 	{
 		// The talisman is flavored after the current rune tier
-		return i == 0 ? RUNE_NAMES[tier] + " " + UPGRADE_NAMES[0] : UPGRADE_NAMES[i];
+		return i == 0 ? RUNE_NAMES[game.getTier()] + " " + UPGRADE_NAMES[0] : UPGRADE_NAMES[i];
 	}
 
 	private void refreshUi()
@@ -1083,12 +747,20 @@ public class RuneClickerPanel extends JPanel
 			return;
 		}
 
+		// A snapshot of the game for this redraw
+		long now = System.currentTimeMillis();
+		int tier = game.getTier();
+		double points = game.getPoints();
+		int pouchLevel = game.getPouchLevel();
+		int pouchMultiplier = (int) Math.pow(2, pouchLevel);
+		double gm = game.globalMultiplier(now);
+
 		runeButton.setState(RUNE_NAMES[tier], true);
 		setRuneIcon();
 		pointsLabel.setText(format(points) + " points");
-		rateLabel.setText("+" + format(pointsPerClick()) + "/click, +" + format(pointsPerSecondExpected()) + "/s");
+		rateLabel.setText("+" + format(game.pointsPerClick(now)) + "/click, +"
+			+ format(game.pointsPerSecondExpected(now)) + "/s");
 
-		double gm = globalMultiplier();
 		String gmExplained = "global = 2^tier x 3^attunement"
 			+ " (x2 Daeyalt, x" + FRENZY_MULTIPLIER + " frenzy while active) = " + formatRate(gm);
 		rateLabel.setToolTipText("<html>Click: (1 + talismans) x 2^pouches x global"
@@ -1100,23 +772,23 @@ public class RuneClickerPanel extends JPanel
 			// Show what buying one actually yields right now, ALL multipliers
 			// included — talismans are boosted by pouches too, not just tier.
 			// ZMI shows its expected yield to agree with the top rate line.
-			double idleRate = UPGRADE_IDLE_RATES[i] * gm * (i == ZMI_INDEX ? zmiYieldFactor() : 1);
+			double idleRate = UPGRADE_IDLE_RATES[i] * gm * (i == ZMI_INDEX ? game.zmiYieldFactor() : 1);
 			String effect = i == 0
-				? "+" + formatRate(Math.pow(2, pouchLevel) * gm) + "/click"
+				? "+" + formatRate(pouchMultiplier * gm) + "/click"
 				: "+" + formatRate(idleRate) + "/s";
-			upgradeLabels[i].setText(html(upgradeDisplayName(i) + " x" + upgradeCounts[i]
-				+ " (" + effect + ")<br>Cost: " + format(upgradeCost(i))));
-			upgradeButtons[i].setEnabled(points >= upgradeCost(i));
+			upgradeLabels[i].setText(html(upgradeDisplayName(i) + " x" + game.getUpgradeCount(i)
+				+ " (" + effect + ")<br>Cost: " + format(game.upgradeCost(i))));
+			upgradeButtons[i].setEnabled(points >= game.upgradeCost(i));
 
 			if (i == 0)
 			{
 				upgradeLabels[i].setToolTipText("<html>Points/click = (1 + talismans) x 2^pouches x global<br>"
-					+ "= (1 + " + upgradeCounts[0] + ") x " + (int) Math.pow(2, pouchLevel) + " x " + formatRate(gm)
-					+ " = " + format(pointsPerClick()) + "<br>" + gmExplained + "</html>");
+					+ "= (1 + " + game.getUpgradeCount(0) + ") x " + pouchMultiplier + " x " + formatRate(gm)
+					+ " = " + format(game.pointsPerClick(now)) + "<br>" + gmExplained + "</html>");
 			}
 			else if (i == ZMI_INDEX)
 			{
-				String zmiLine = perkCounts[PERK_PERFECT_ZMI] > 0
+				String zmiLine = game.getPerkCount(PERK_PERFECT_ZMI) > 0
 					? "Perfect Ourania: never fails."
 					: "10% of seconds yield nothing (it's ZMI).";
 				upgradeLabels[i].setToolTipText("<html>Each produces " + UPGRADE_IDLE_RATES[i]
@@ -1145,39 +817,38 @@ public class RuneClickerPanel extends JPanel
 			setItemIcon(pouchIconLabel, POUCH_ICON_IDS[pouchIconIdx]);
 		}
 
-		if (pouchLevel >= POUCH_NAMES.length)
+		if (game.hasAllPouches())
 		{
-			pouchLabel.setText(html("All pouches owned<br>(x" + (int) Math.pow(2, pouchLevel) + "/click)"));
+			pouchLabel.setText(html("All pouches owned<br>(x" + pouchMultiplier + "/click)"));
 			pouchButton.setEnabled(false);
 		}
 		else
 		{
 			pouchLabel.setText(html(POUCH_NAMES[pouchLevel] + " (x2/click)<br>Cost: "
-				+ format(POUCH_COSTS[pouchLevel])));
-			pouchButton.setEnabled(points >= POUCH_COSTS[pouchLevel]);
+				+ format(game.nextPouchCost())));
+			pouchButton.setEnabled(points >= game.nextPouchCost());
 		}
 		pouchLabel.setToolTipText("<html>Each pouch doubles points per click —<br>"
-			+ "including what talismans add. Currently x" + (int) Math.pow(2, pouchLevel)
+			+ "including what talismans add. Currently x" + pouchMultiplier
 			+ " with " + pouchLevel + " pouch(es).<br>Does not affect idle income."
-			+ (perkCounts[PERK_POUCH_KEEPER] > 0 ? "<br>Pouch keeper: kept on prestige." : "") + "</html>");
+			+ (game.getPerkCount(PERK_POUCH_KEEPER) > 0 ? "<br>Pouch keeper: kept on prestige." : "") + "</html>");
 
-		long now = System.currentTimeMillis();
-		if (!daeyaltOwned)
+		if (!game.isDaeyaltOwned())
 		{
 			daeyaltLabel.setText(html("Daeyalt shard infusion<br>(x2 for " + DAEYALT_BOOST_SECONDS
 				+ " s) Cost: " + format(DAEYALT_COST)));
 			daeyaltButton.setText("Buy");
 			daeyaltButton.setEnabled(points >= DAEYALT_COST);
 		}
-		else if (now < daeyaltBoostEndMs)
+		else if (game.isDaeyaltActive(now))
 		{
-			daeyaltLabel.setText(html("Daeyalt boost ACTIVE: " + (daeyaltBoostEndMs - now) / 1000 + " s"));
+			daeyaltLabel.setText(html("Daeyalt boost ACTIVE: " + (game.getDaeyaltBoostEndMs() - now) / 1000 + " s"));
 			daeyaltButton.setText("Active");
 			daeyaltButton.setEnabled(false);
 		}
-		else if (now < daeyaltCooldownEndMs)
+		else if (now < game.getDaeyaltCooldownEndMs())
 		{
-			daeyaltLabel.setText(html("Daeyalt recharging: " + (daeyaltCooldownEndMs - now) / 1000 + " s"));
+			daeyaltLabel.setText(html("Daeyalt recharging: " + (game.getDaeyaltCooldownEndMs() - now) / 1000 + " s"));
 			daeyaltButton.setText("Wait");
 			daeyaltButton.setEnabled(false);
 		}
@@ -1191,8 +862,8 @@ public class RuneClickerPanel extends JPanel
 			+ DAEYALT_BOOST_SECONDS + " s, then " + (DAEYALT_COOLDOWN_SECONDS / 60) + " min cooldown.</html>");
 
 		// Runespan perks: teased before the first ascension, usable after
-		boolean showPerks = ascensions > 0;
-		int unspent = unspentRunespanPoints();
+		boolean showPerks = game.getAscensions() > 0;
+		int unspent = game.unspentRunespanPoints();
 		perkHeaderLabel.setVisible(true);
 		if (showPerks)
 		{
@@ -1212,29 +883,29 @@ public class RuneClickerPanel extends JPanel
 			{
 				continue;
 			}
-			boolean maxed = !PERK_REPEATABLE[i] && perkCounts[i] > 0;
-			perkLabels[i].setText(html(PERK_NAMES[i] + " x" + perkCounts[i]
+			boolean maxed = game.isPerkMaxed(i);
+			perkLabels[i].setText(html(PERK_NAMES[i] + " x" + game.getPerkCount(i)
 				+ (maxed ? " (owned)" : "<br>Cost: 1 Runespan point")));
 			perkLabels[i].setToolTipText("<html>" + PERK_DESCRIPTIONS[i] + "</html>");
 			perkButtons[i].setEnabled(unspent >= 1 && !maxed);
 		}
 
-		statsLabel.setText(html("Lifetime: " + format(lifetimePoints) + " points, "
-			+ format(totalClicks) + " clicks<br>Prestiges: " + totalPrestiges
-			+ ", Ascensions: " + ascensions
-			+ "<br>Golden runes caught: " + goldenCaught + "/" + goldenSeen
-			+ "<br>Crits landed: " + format(critCount)
+		statsLabel.setText(html("Lifetime: " + format(game.getLifetimePoints()) + " points, "
+			+ format(game.getTotalClicks()) + " clicks<br>Prestiges: " + game.getTotalPrestiges()
+			+ ", Ascensions: " + game.getAscensions()
+			+ "<br>Golden runes caught: " + game.getGoldenCaught() + "/" + game.getGoldenSeen()
+			+ "<br>Crits landed: " + format(game.getCritCount())
 			+ "<br><br>Tip: Shift-click a Buy button to buy up to " + BULK_BUY_COUNT + "."));
 
 		refreshAchievements();
 
 		// Two lines: action on top, full cost below — no hover needed to read it
-		String prestigeLine = tier >= MAX_TIER
+		String prestigeLine = game.isAscensionNext()
 			? "Ascend the Runespan" : "Prestige: " + RUNE_NAMES[tier + 1];
 		prestigeButton.setText("<html><center>" + prestigeLine
-			+ "<br>" + format(prestigeCost()) + "</center></html>");
-		prestigeButton.setToolTipText("Cost: " + format(prestigeCost()) + " points");
-		prestigeButton.setEnabled(points >= prestigeCost());
+			+ "<br>" + format(game.prestigeCost()) + "</center></html>");
+		prestigeButton.setToolTipText("Cost: " + format(game.prestigeCost()) + " points");
+		prestigeButton.setEnabled(game.canPrestige());
 	}
 
 	private void refreshAchievements()
@@ -1278,7 +949,7 @@ public class RuneClickerPanel extends JPanel
 
 	private void setRuneIcon()
 	{
-		AsyncBufferedImage img = itemManager.getImage(RUNE_ITEM_IDS[tier]);
+		AsyncBufferedImage img = itemManager.getImage(RUNE_ITEM_IDS[game.getTier()]);
 		Runnable apply = () -> runeButton.setSprite(img);
 		apply.run();
 		img.onLoaded(apply);

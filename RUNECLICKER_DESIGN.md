@@ -3,8 +3,10 @@
 Cookie-clicker, RS-modified: click a rune to craft, spend points on upgrades
 that craft for you, and prestige up the rune tiers. Replaces the old cookie
 clicker (existing cookie counts migrate into starting points, once, per
-character). All numbers live as constants at the top of `RuneClickerPanel` and
-are meant to be tuned.
+character). All numbers live as constants at the top of
+`clicker/RuneClickerGame` (the rules, with no UI; `RuneClickerPanel` only draws
+it) and are meant to be tuned. Run `RuneClickerSimulation` in `src/test` to see
+the time per tier a change produces.
 
 ## Core loop
 
@@ -24,35 +26,64 @@ are meant to be tuned.
 `globalMultiplier = 2^tier × 3^attunement` (×2 during Daeyalt, ×7 during frenzy)
 
 So each prestige doubles the whole economy — the same upgrades at the same
-prices then produce double, making rebuilds fast.
+prices then produce double, making rebuilds fast. Prestige costs double per
+tier as well (see below), so the doubling speeds up the rebuild, not the tier.
 
 ## Prestige tiers
 
 Real Runecrafting unlock order, 15 tiers: Air, Mind, Water, Earth, Fire, Body,
 Cosmic, Chaos, Astral, Nature, Law, Death, Blood, Soul, Wrath.
 
-Cost is the **real OSRS experience** for a mapped level, via the authentic
-`xpForLevel` formula. The 15 tiers spread across levels 20 → 126 — i.e. the
-whole XP curve up to the 200M cap (virtual level 126 = 188,884,740). Spread
-this wide, each tier is ~2.15× the last, above income's ×2/tier, so the climb
-steepens on its own (no artificial ramp). The 99 → 126 stretch is the familiar
-post-99 grind, so reaching Ascend is a real haul.
+`cost = xpForLevel(PRESTIGE_LEVELS[tier]) × 2^tier × ASCENSION_COST_FACTOR^ascensions`
+
+The base is the **real OSRS experience** for a level, via the authentic
+`xpForLevel` formula. Each tier has its own level in the `PRESTIGE_LEVELS`
+table, ending at 126 (the 200M XP cap). The `× 2^tier` cancels the income
+doubling: without it, upgrade prices stay flat while income doubles, and the
+late tiers took seconds (a full ascension took under 7 minutes of clicking).
 
 | Prestige | Level | Cost |
 |---|---|---|
-| Air → Mind | 20 | 4,470 |
-| Fire → Body | 50 | 101,333 |
-| Chaos → Astral | 73 | 992,895 |
-| Law → Death | 96 | 9,684,577 |
-| Wrath → Ascend | 126 | 188,884,740 |
+| Air → Mind | 14 | 2,107 |
+| Mind → Water | 29 | 24,062 |
+| Water → Earth | 43 | 201,356 |
+| Earth → Fire | 55 | 1,333,088 |
+| Fire → Body | 67 | 8,767,248 |
+| Body → Cosmic | 80 | 63,554,176 |
+| Cosmic → Chaos | 90 | 342,165,248 |
+| Chaos → Astral | 97 | 1,368,656,512 |
+| Astral → Nature | 103 | 4,958,461,952 |
+| Nature → Law | 107 | 14,736,419,328 |
+| Law → Death | 111 | 43,796,276,224 |
+| Death → Blood | 115 | 130,161,547,264 |
+| Blood → Soul | 119 | 386,837,450,752 |
+| Soul → Wrath | 122 | 1,041,287,249,920 |
+| Wrath → Ascend | 126 | 3,094,687,580,160 |
+
+**Pacing.** The levels were fitted with `RuneClickerSimulation` so that, for a
+player clicking once a second, each tier takes about 1.3× as long as the one
+before: about 4 minutes for Air, about 2.7 hours for Wrath. Simulated time to
+the first ascension (golden runes and Daeyalt ignored, so real play is a
+little faster):
+
+| Player | First ascension |
+|---|---|
+| Idle only | ~19 h |
+| 1 click/s | ~11 h |
+| 3 clicks/s | ~7 h |
+
+To retune, change a level in the table and rerun the simulation; one level is
+about 10% more cost.
 
 **After ascension** all prestige costs are multiplied by
-`ASCENSION_COST_FACTOR^ascensions` (factor 2.0). Attunement gives ×3 income per
-point, so repeat runs are still faster and stronger, just not trivial. Set the
-factor to 1.0 to disable.
+`ASCENSION_COST_FACTOR^ascensions` (factor 4.0). It has to exceed attunement's
+×3 income per point, otherwise each ascension makes the next run easier; at
+4.0 each run is a little longer than the last. Set the factor to 1.0 to
+disable.
 
 History: ×10/tier (diverged) → ×3/tier → OSRS XP to level 99 (too fast) → OSRS
-XP to level 126 + per-ascension scaling (v1.0).
+XP to level 126 + per-ascension scaling ×2 (v1.0; late tiers took seconds) →
+fitted level table × 2^tier, ascension scaling ×4.
 
 ## Ascension (second prestige layer)
 
@@ -110,4 +141,7 @@ current character after confirmation; achievements are kept.
 
 - Party leaderboard (broadcast lifetime points over the party websocket)
 - Buy-max (currently shift-click buys up to 10)
-- Balance pass on mid/late tiers once more players have climbed
+- Refit `PRESTIGE_LEVELS` after adding buildings or synergies (they speed
+  everything up)
+- Idle-only play is slow at the start of each tier (miners are weak next to
+  clicking); synergies that tie clicks to idle income would narrow the gap
