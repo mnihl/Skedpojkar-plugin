@@ -88,23 +88,20 @@ public class RuneClickerGameTest
 		{
 			prestigeOnce();
 		}
-		assertEquals(8_767_248, game.prestigeCost(), EXACT); // Fire -> Body: level 67 x 2^4
+		assertEquals(12_886_784, game.prestigeCost(), EXACT); // Fire -> Body: level 43 x 4^4
 		for (int i = 4; i < MAX_TIER; i++)
 		{
 			prestigeOnce();
 		}
-		// Wrath -> Ascend: level 126 (the 200M cap) x 2^14
-		assertEquals(188_884_740d * 16_384, game.prestigeCost(), EXACT);
+		// Wrath -> Ascend: the last level in the table x 4^14
+		assertEquals(Math.floor(xpForLevel(PRESTIGE_LEVELS[MAX_TIER]) * Math.pow(4, MAX_TIER)),
+			game.prestigeCost(), EXACT);
 	}
 
 	@Test
-	public void thereIsAPrestigeLevelForEveryTierAndTheyRise()
+	public void thereIsAPrestigeLevelForEveryTier()
 	{
 		assertEquals(RUNE_NAMES.length, PRESTIGE_LEVELS.length);
-		for (int i = 1; i < PRESTIGE_LEVELS.length; i++)
-		{
-			assertTrue("tier " + i, PRESTIGE_LEVELS[i] > PRESTIGE_LEVELS[i - 1]);
-		}
 	}
 
 	@Test
@@ -274,6 +271,102 @@ public class RuneClickerGameTest
 		long cooldownOver = NOW + DAEYALT_COOLDOWN_SECONDS * 1000L;
 		assertFalse(game.activateDaeyalt(cooldownOver - 1));
 		assertTrue(game.activateDaeyalt(cooldownOver));
+	}
+
+	// ---- Buildings: unlocks and ownership milestones ----
+
+	@Test
+	public void everyUpgradeHasACostARateAndAnUnlockTier()
+	{
+		assertEquals(UPGRADE_NAMES.length, UPGRADE_BASE_COSTS.length);
+		assertEquals(UPGRADE_NAMES.length, UPGRADE_IDLE_RATES.length);
+		assertEquals(UPGRADE_NAMES.length, UPGRADE_UNLOCK_TIERS.length);
+		for (int i = 2; i < UPGRADE_NAMES.length; i++)
+		{
+			assertTrue(UPGRADE_NAMES[i], UPGRADE_BASE_COSTS[i] > UPGRADE_BASE_COSTS[i - 1]);
+			assertTrue(UPGRADE_NAMES[i], UPGRADE_IDLE_RATES[i] > UPGRADE_IDLE_RATES[i - 1]);
+			assertTrue(UPGRADE_NAMES[i], UPGRADE_UNLOCK_TIERS[i] >= UPGRADE_UNLOCK_TIERS[i - 1]);
+			assertTrue(UPGRADE_NAMES[i], UPGRADE_UNLOCK_TIERS[i] <= MAX_TIER);
+		}
+	}
+
+	@Test
+	public void bigBuildingsAreLockedUntilTheirRuneTier()
+	{
+		int abyssRunner = 6; // unlocks at Fire (tier 4)
+		game.gainPoints(1e12);
+		assertFalse(game.isUpgradeUnlocked(abyssRunner));
+		assertEquals(abyssRunner, game.nextLockedUpgrade());
+		assertEquals("locked buildings cannot be bought", 0, game.buyUpgrade(abyssRunner, false));
+		assertEquals(1e12, game.getPoints(), EXACT);
+
+		while (game.getTier() < UPGRADE_UNLOCK_TIERS[abyssRunner])
+		{
+			prestigeOnce();
+		}
+		game.gainPoints(1e12);
+		assertTrue(game.isUpgradeUnlocked(abyssRunner));
+		assertEquals(7, game.nextLockedUpgrade());
+		assertEquals(1, game.buyUpgrade(abyssRunner, false));
+	}
+
+	@Test
+	public void everythingIsUnlockedAtTheTopTier()
+	{
+		for (int i = 0; i < MAX_TIER; i++)
+		{
+			prestigeOnce();
+		}
+		assertEquals(-1, game.nextLockedUpgrade());
+	}
+
+	@Test
+	public void ascendingLocksTheBigBuildingsAgain()
+	{
+		ascendOnce();
+		assertFalse(game.isUpgradeUnlocked(UPGRADE_NAMES.length - 1));
+	}
+
+	@Test
+	public void milestonesDoubleABuildingAtTen25FiftyAndAHundred()
+	{
+		assertEquals(1, milestoneMultiplier(0));
+		assertEquals(1, milestoneMultiplier(9));
+		assertEquals(2, milestoneMultiplier(10));
+		assertEquals(2, milestoneMultiplier(24));
+		assertEquals(4, milestoneMultiplier(25));
+		assertEquals(8, milestoneMultiplier(50));
+		assertEquals(16, milestoneMultiplier(100));
+		assertEquals(16, milestoneMultiplier(500));
+
+		assertEquals(10, nextMilestone(0));
+		assertEquals(25, nextMilestone(10));
+		assertEquals(100, nextMilestone(99));
+		assertEquals(-1, nextMilestone(100));
+	}
+
+	@Test
+	public void theTenthBuildingDoublesThatBuildingOnly()
+	{
+		game.gainPoints(1e9);
+		game.buyUpgrade(2, false); // one pure essence miner: 2/s
+		for (int i = 0; i < 9; i++)
+		{
+			game.buyUpgrade(1, false);
+		}
+		assertEquals(9 * 0.5 + 2, game.pointsPerSecondExpected(NOW), EXACT);
+
+		game.buyUpgrade(1, false); // the 10th rune essence miner
+		assertEquals(10 * 0.5 * 2 + 2, game.pointsPerSecondExpected(NOW), EXACT);
+		assertEquals(10 * 0.5 * 2 + 2, game.tick(NOW), EXACT);
+	}
+
+	@Test
+	public void talismansHaveNoMilestones()
+	{
+		game.gainPoints(1e9);
+		game.buyUpgrade(0, true); // 10 talismans
+		assertEquals(11, game.pointsPerClick(NOW), EXACT);
 	}
 
 	// ---- Golden runes ----

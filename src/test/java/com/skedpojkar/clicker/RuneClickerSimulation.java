@@ -138,9 +138,15 @@ public class RuneClickerSimulation
 			double bestPayback = worthItBelow;
 			for (int i = 0; i < UPGRADE_NAMES.length; i++)
 			{
+				if (!game.isUpgradeUnlocked(i))
+				{
+					continue;
+				}
+				int owned = game.getUpgradeCount(i);
 				double gain = i == 0
 					? clickRate * Math.pow(2, game.getPouchLevel()) * gm
-					: UPGRADE_IDLE_RATES[i] * gm * (i == ZMI_INDEX ? game.zmiYieldFactor() : 1);
+					: (buildingOutput(i, owned + 1) - buildingOutput(i, owned)) * gm
+						* (i == ZMI_INDEX ? game.zmiYieldFactor() : 1);
 				double cost = game.upgradeCost(i);
 				if (gain > 0 && cost <= game.getPoints() && cost / gain < bestPayback)
 				{

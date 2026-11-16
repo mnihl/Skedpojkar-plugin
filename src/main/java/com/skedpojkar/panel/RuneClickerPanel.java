@@ -67,6 +67,8 @@ public class RuneClickerPanel extends JPanel
 	private static final int[] UPGRADE_ICON_IDS = {
 		ItemID.AIR_TALISMAN, ItemID.RUNE_ESSENCE, ItemID.PURE_ESSENCE,
 		ItemID.ABYSSAL_WHIP, ItemID.LAW_RUNE, ItemID.MYSTIC_HAT,
+		ItemID.ABYSSAL_BRACELET5, ItemID.BLOOD_ESSENCE, ItemID.HAT_OF_THE_EYE,
+		ItemID.RUNECRAFT_CAPE,
 	};
 	private static final int[] POUCH_ICON_IDS = {
 		ItemID.SMALL_POUCH, ItemID.MEDIUM_POUCH, ItemID.LARGE_POUCH,
@@ -120,6 +122,8 @@ public class RuneClickerPanel extends JPanel
 	private final JButton[] upgradeButtons = new JButton[UPGRADE_NAMES.length];
 	private final JLabel[] upgradeLabels = new JLabel[UPGRADE_NAMES.length];
 	private final JLabel[] upgradeIconLabels = new JLabel[UPGRADE_NAMES.length];
+	private final JPanel[] upgradeRows = new JPanel[UPGRADE_NAMES.length];
+	private final JLabel lockedHintLabel = new JLabel();
 	private int talismanIconTier = -1;
 	private final JButton pouchButton = new JButton("Buy");
 	private final JLabel pouchLabel = new JLabel();
@@ -205,8 +209,15 @@ public class RuneClickerPanel extends JPanel
 				buyUpgrade(idx, (e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0));
 			upgradeLabels[i] = new JLabel();
 			upgradeIconLabels[i] = itemIconLabel(UPGRADE_ICON_IDS[i]);
-			shop.add(shopRow(upgradeIconLabels[i], upgradeLabels[i], upgradeButtons[i]));
+			upgradeRows[i] = shopRow(upgradeIconLabels[i], upgradeLabels[i], upgradeButtons[i]);
+			shop.add(upgradeRows[i]);
 		}
+		// Teaser for the next building the current rune tier doesn't sell yet
+		lockedHintLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
+		lockedHintLabel.setForeground(java.awt.Color.GRAY);
+		lockedHintLabel.setBorder(BorderFactory.createEmptyBorder(2, 0, 4, 0));
+		lockedHintLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+		shop.add(lockedHintLabel);
 		pouchIconLabel.setPreferredSize(new Dimension(SHOP_ICON_SIZE + 2, SHOP_ICON_SIZE + 2));
 		pouchButton.addActionListener(e -> buyPouch());
 		shop.add(shopRow(pouchIconLabel, pouchLabel, pouchButton));
@@ -765,14 +776,28 @@ public class RuneClickerPanel extends JPanel
 			+ " (x2 Daeyalt, x" + FRENZY_MULTIPLIER + " frenzy while active) = " + formatRate(gm);
 		rateLabel.setToolTipText("<html>Click: (1 + talismans) x 2^pouches x global"
 			+ " (" + (int) (CRIT_CHANCE * 100) + "% chance of x" + CRIT_MULTIPLIER + " crit)<br>"
-			+ "Idle: sum of upgrades x global + auto-clicks<br>" + gmExplained + "</html>");
+			+ "Idle: sum of buildings (doubled at 10 / 25 / 50 / 100 owned) x global + auto-clicks<br>"
+			+ gmExplained + "</html>");
 
 		for (int i = 0; i < UPGRADE_NAMES.length; i++)
 		{
 			// Show what buying one actually yields right now, ALL multipliers
 			// included — talismans are boosted by pouches too, not just tier.
 			// ZMI shows its expected yield to agree with the top rate line.
-			double idleRate = UPGRADE_IDLE_RATES[i] * gm * (i == ZMI_INDEX ? game.zmiYieldFactor() : 1);
+			// Buildings above the current rune tier aren't sold yet
+			boolean unlocked = game.isUpgradeUnlocked(i);
+			upgradeRows[i].setVisible(unlocked);
+			if (!unlocked)
+			{
+				continue;
+			}
+
+			int owned = game.getUpgradeCount(i);
+			int milestoneMult = milestoneMultiplier(owned);
+			int nextMilestone = nextMilestone(owned);
+			String milestoneLine = "<br>Owning 10 / 25 / 50 / 100 doubles this building (now x" + milestoneMult + ")."
+				+ (nextMilestone > 0 ? " Next doubling at " + nextMilestone + " owned." : "");
+			double idleRate = UPGRADE_IDLE_RATES[i] * milestoneMult * gm * (i == ZMI_INDEX ? game.zmiYieldFactor() : 1);
 			String effect = i == 0
 				? "+" + formatRate(pouchMultiplier * gm) + "/click"
 				: "+" + formatRate(idleRate) + "/s";
@@ -791,15 +816,23 @@ public class RuneClickerPanel extends JPanel
 				String zmiLine = game.getPerkCount(PERK_PERFECT_ZMI) > 0
 					? "Perfect Ourania: never fails."
 					: "10% of seconds yield nothing (it's ZMI).";
-				upgradeLabels[i].setToolTipText("<html>Each produces " + UPGRADE_IDLE_RATES[i]
-					+ "/s base x global. " + zmiLine + "<br>Expected: "
-					+ formatRate(idleRate) + "/s<br>" + gmExplained + "</html>");
+				upgradeLabels[i].setToolTipText("<html>Each produces " + formatRate(UPGRADE_IDLE_RATES[i])
+					+ "/s base x milestones x global. " + zmiLine + "<br>Expected: "
+					+ formatRate(idleRate) + "/s<br>" + gmExplained + milestoneLine + "</html>");
 			}
 			else
 			{
-				upgradeLabels[i].setToolTipText("<html>Each produces " + UPGRADE_IDLE_RATES[i]
-					+ "/s base x global = " + formatRate(idleRate) + "/s<br>" + gmExplained + "</html>");
+				upgradeLabels[i].setToolTipText("<html>Each produces " + formatRate(UPGRADE_IDLE_RATES[i])
+					+ "/s base x milestones x global = " + formatRate(idleRate) + "/s<br>"
+					+ gmExplained + milestoneLine + "</html>");
 			}
+		}
+
+		int nextLocked = game.nextLockedUpgrade();
+		lockedHintLabel.setVisible(nextLocked >= 0);
+		if (nextLocked >= 0)
+		{
+			lockedHintLabel.setText(html("??? — unlocks at " + RUNE_NAMES[UPGRADE_UNLOCK_TIERS[nextLocked]] + " runes"));
 		}
 
 		// The talisman icon follows the current tier

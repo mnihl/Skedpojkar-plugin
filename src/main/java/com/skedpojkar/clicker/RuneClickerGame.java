@@ -37,9 +37,23 @@ public class RuneClickerGame
 	public static final String[] UPGRADE_NAMES = {
 		"talisman", "Rune essence miner", "Pure essence miner",
 		"Abyssal leech", "ZMI altar trips", "Wicked hood",
+		"Abyss runner", "Blood altar runner", "Guardians of the Rift", "Runespan siphon",
 	};
-	public static final double[] UPGRADE_BASE_COSTS = {50, 200, 1_500, 10_000, 75_000, 400_000};
-	public static final double[] UPGRADE_IDLE_RATES = {0, 0.5, 2, 8, 30, 150};
+	public static final double[] UPGRADE_BASE_COSTS = {
+		50, 200, 1_500, 10_000, 75_000, 400_000,
+		2_400_000, 15_000_000, 90_000_000, 540_000_000,
+	};
+	public static final double[] UPGRADE_IDLE_RATES = {
+		0, 0.5, 2, 8, 30, 150,
+		750, 4_000, 20_000, 100_000,
+	};
+	// The rune tier at which each upgrade appears in the shop (0 = from the
+	// start). The four big buildings arrive at Fire, Chaos, Law and Soul, so
+	// prestiging keeps unlocking something new.
+	public static final int[] UPGRADE_UNLOCK_TIERS = {0, 0, 0, 0, 0, 0, 4, 7, 10, 13};
+	// Owning this many of an idle building doubles that building's output,
+	// once per threshold reached (so x16 at 100 owned). Not for talismans.
+	public static final int[] MILESTONE_COUNTS = {10, 25, 50, 100};
 	public static final double UPGRADE_COST_GROWTH = 1.15;
 	public static final int ZMI_INDEX = 4;
 	public static final double ZMI_FAIL_CHANCE = 0.10;
@@ -85,19 +99,22 @@ public class RuneClickerGame
 	public static final boolean[] PERK_REPEATABLE = {true, false, false, false, true};
 
 	// Prestige cost for a tier = the real OSRS experience for that tier's level
-	// below, times 2^tier. The 2^tier cancels out the income doubling each
-	// prestige gives (without it, later tiers took seconds), so how long a tier
-	// takes is decided by this table alone. The levels were fitted with
-	// RuneClickerSimulation so each tier takes about 1.3x as long as the one
-	// before, ending at level 126 (the 200M XP cap). To retune: change a level,
-	// rerun the simulation, read the table. Raising a level by 1 costs ~10% more.
+	// below, times PRESTIGE_TIER_FACTOR^tier. Income doubles every prestige while
+	// shop prices stay flat, and bigger buildings unlock on the way up, so the
+	// cost has to grow much faster than income or later tiers take seconds.
+	// The levels were fitted with RuneClickerSimulation so each tier takes about
+	// 1.3x as long as the one before. They are not strictly rising: a tier that
+	// unlocks a new building needs a jump, the tiers after it less. What must
+	// rise is the resulting cost (a test checks that). To retune: change a
+	// level, rerun the simulation, read the table. One level is ~10% more cost.
 	public static final int[] PRESTIGE_LEVELS = {
-		14, 29, 43, 55, 67, 80, 90, 97, 103, 107, 111, 115, 119, 122, 126,
+		14, 22, 30, 36, 43, 57, 67, 88, 90, 95, 109, 106, 103, 116, 112,
 	};
-	// Each completed ascension multiplies all prestige costs. It must be above
-	// attunement's x3 income per level, or every ascension makes the next run
-	// easier than the last. 1.0 disables.
-	public static final double ASCENSION_COST_FACTOR = 4.0;
+	public static final double PRESTIGE_TIER_FACTOR = 4.0;
+	// Each completed ascension multiplies all prestige costs. It must be well
+	// above attunement's x3 income per level, or every ascension makes the next
+	// run easier than the last. 1.0 disables.
+	public static final double ASCENSION_COST_FACTOR = 5.0;
 
 	/** What one click of the rune produced. */
 	public static final class Click
@@ -184,13 +201,49 @@ public class RuneClickerGame
 		return perkCounts[PERK_PERFECT_ZMI] > 0 ? 1 : 1 - ZMI_FAIL_CHANCE;
 	}
 
+	/** x2 for every ownership milestone (10, 25, 50, 100) reached with this many owned. */
+	public static int milestoneMultiplier(int owned)
+	{
+		int mult = 1;
+		for (int threshold : MILESTONE_COUNTS)
+		{
+			if (owned >= threshold)
+			{
+				mult *= 2;
+			}
+		}
+		return mult;
+	}
+
+	/** The next ownership milestone above this many owned, or -1 once all are reached. */
+	public static int nextMilestone(int owned)
+	{
+		for (int threshold : MILESTONE_COUNTS)
+		{
+			if (owned < threshold)
+			{
+				return threshold;
+			}
+		}
+		return -1;
+	}
+
+	/**
+	 * What {@code owned} of an idle building produce per second together,
+	 * milestone doublings included, before the global multiplier.
+	 */
+	public static double buildingOutput(int idx, int owned)
+	{
+		return UPGRADE_IDLE_RATES[idx] * owned * milestoneMultiplier(owned);
+	}
+
 	/** Expected idle income per second (ZMI at its average yield; auto-clicks included). */
 	public double pointsPerSecondExpected(long nowMs)
 	{
 		double sum = 0;
 		for (int i = 1; i < UPGRADE_NAMES.length; i++)
 		{
-			double rate = UPGRADE_IDLE_RATES[i] * upgradeCounts[i];
+			double rate = buildingOutput(i, upgradeCounts[i]);
 			if (i == ZMI_INDEX)
 			{
 				rate *= zmiYieldFactor();
@@ -231,7 +284,7 @@ public class RuneClickerGame
 		double income = 0;
 		for (int i = 1; i < UPGRADE_NAMES.length; i++)
 		{
-			double rate = UPGRADE_IDLE_RATES[i] * upgradeCounts[i];
+			double rate = buildingOutput(i, upgradeCounts[i]);
 			if (i == ZMI_INDEX && perkCounts[PERK_PERFECT_ZMI] == 0
 				&& random.nextDouble() < ZMI_FAIL_CHANCE)
 			{
@@ -253,9 +306,32 @@ public class RuneClickerGame
 		return UPGRADE_BASE_COSTS[idx] * Math.pow(UPGRADE_COST_GROWTH, upgradeCounts[idx]);
 	}
 
+	/** False while the current rune tier is too low for this upgrade to be sold. */
+	public boolean isUpgradeUnlocked(int idx)
+	{
+		return tier >= UPGRADE_UNLOCK_TIERS[idx];
+	}
+
+	/** The first upgrade the current tier doesn't sell yet, or -1 if everything is unlocked. */
+	public int nextLockedUpgrade()
+	{
+		for (int i = 0; i < UPGRADE_NAMES.length; i++)
+		{
+			if (!isUpgradeUnlocked(i))
+			{
+				return i;
+			}
+		}
+		return -1;
+	}
+
 	/** Buys one (or up to {@link #BULK_BUY_COUNT}) of an upgrade. Returns how many were bought. */
 	public int buyUpgrade(int idx, boolean bulk)
 	{
+		if (!isUpgradeUnlocked(idx))
+		{
+			return 0;
+		}
 		int toBuy = bulk ? BULK_BUY_COUNT : 1;
 		int bought = 0;
 		for (int i = 0; i < toBuy; i++)
@@ -368,13 +444,13 @@ public class RuneClickerGame
 
 	/**
 	 * Prestige cost is the real OSRS experience for the tier's level (see
-	 * {@link #PRESTIGE_LEVELS}), times 2^tier, times a per-ascension factor.
-	 * First prestige 2,107 (level 14); final Ascend ~3.09 trillion (level 126
-	 * x 2^14), before ascension scaling.
+	 * {@link #PRESTIGE_LEVELS}), times 4^tier, times a per-ascension factor.
+	 * First prestige 2,107 (level 14); final Ascend ~12.7 quadrillion, before
+	 * ascension scaling.
 	 */
 	public double prestigeCost()
 	{
-		return Math.floor(xpForLevel(PRESTIGE_LEVELS[tier]) * Math.pow(2, tier)
+		return Math.floor(xpForLevel(PRESTIGE_LEVELS[tier]) * Math.pow(PRESTIGE_TIER_FACTOR, tier)
 			* Math.pow(ASCENSION_COST_FACTOR, ascensions));
 	}
 

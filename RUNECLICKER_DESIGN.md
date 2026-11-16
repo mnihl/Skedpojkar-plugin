@@ -22,43 +22,50 @@ the time per tier a change produces.
 ## Income
 
 `pointsPerClick = (1 + talismans) × 2^pouches × globalMultiplier`
-`pointsPerSecond = Σ(idle upgrade rate × count) × globalMultiplier + autoClicks`
+`pointsPerSecond = Σ(building rate × count × milestones) × globalMultiplier + autoClicks`
+`milestones = ×2 for each of 10 / 25 / 50 / 100 owned of that building (×16 at 100)`
 `globalMultiplier = 2^tier × 3^attunement` (×2 during Daeyalt, ×7 during frenzy)
 
 So each prestige doubles the whole economy — the same upgrades at the same
-prices then produce double, making rebuilds fast. Prestige costs double per
-tier as well (see below), so the doubling speeds up the rebuild, not the tier.
+prices then produce double, making rebuilds fast. Prestige costs grow much
+faster than that (see below), so the doubling speeds up the rebuild, not the
+tier.
 
 ## Prestige tiers
 
 Real Runecrafting unlock order, 15 tiers: Air, Mind, Water, Earth, Fire, Body,
 Cosmic, Chaos, Astral, Nature, Law, Death, Blood, Soul, Wrath.
 
-`cost = xpForLevel(PRESTIGE_LEVELS[tier]) × 2^tier × ASCENSION_COST_FACTOR^ascensions`
+`cost = xpForLevel(PRESTIGE_LEVELS[tier]) × 4^tier × ASCENSION_COST_FACTOR^ascensions`
 
 The base is the **real OSRS experience** for a level, via the authentic
-`xpForLevel` formula. Each tier has its own level in the `PRESTIGE_LEVELS`
-table, ending at 126 (the 200M XP cap). The `× 2^tier` cancels the income
-doubling: without it, upgrade prices stay flat while income doubles, and the
-late tiers took seconds (a full ascension took under 7 minutes of clicking).
+`xpForLevel` formula; each tier has its own level in the `PRESTIGE_LEVELS`
+table. The `× 4^tier` is there because income doubles every prestige while
+shop prices stay flat, and bigger buildings unlock on the way up: without a
+steep ramp the late tiers took seconds (in v1.0 a full ascension took under 7
+minutes of clicking).
 
-| Prestige | Level | Cost |
-|---|---|---|
-| Air → Mind | 14 | 2,107 |
-| Mind → Water | 29 | 24,062 |
-| Water → Earth | 43 | 201,356 |
-| Earth → Fire | 55 | 1,333,088 |
-| Fire → Body | 67 | 8,767,248 |
-| Body → Cosmic | 80 | 63,554,176 |
-| Cosmic → Chaos | 90 | 342,165,248 |
-| Chaos → Astral | 97 | 1,368,656,512 |
-| Astral → Nature | 103 | 4,958,461,952 |
-| Nature → Law | 107 | 14,736,419,328 |
-| Law → Death | 111 | 43,796,276,224 |
-| Death → Blood | 115 | 130,161,547,264 |
-| Blood → Soul | 119 | 386,837,450,752 |
-| Soul → Wrath | 122 | 1,041,287,249,920 |
-| Wrath → Ascend | 126 | 3,094,687,580,160 |
+| Prestige | Level | Cost | Unlocks |
+|---|---|---|---|
+| Air → Mind | 14 | 2,107 | |
+| Mind → Water | 22 | 22,496 | |
+| Water → Earth | 30 | 213,808 | |
+| Earth → Fire | 36 | 1,588,160 | Abyss runner |
+| Fire → Body | 43 | 12,886,784 | |
+| Body → Cosmic | 57 | 208,132,096 | |
+| Cosmic → Chaos | 67 | 2,244,415,488 | Blood altar runner |
+| Chaos → Astral | 88 | 71,856,553,984 | |
+| Astral → Nature | 90 | 350,377,213,952 | |
+| Nature → Law | 95 | 2,299,411,300,352 | Guardians of the Rift |
+| Law → Death | 109 | 36,789,974,728,704 | |
+| Death → Blood | 106 | 109,339,767,472,128 | |
+| Blood → Soul | 103 | 324,957,762,486,272 | Runespan siphon |
+| Soul → Wrath | 116 | ~4.71 quadrillion | |
+| Wrath → Ascend | 112 | ~12.68 quadrillion | |
+
+The levels are not strictly rising: a tier where a new building has just
+unlocked needs a big jump in cost, the tiers after it less. The cost itself
+always rises.
 
 **Pacing.** The levels were fitted with `RuneClickerSimulation` so that, for a
 player clicking once a second, each tier takes about 1.3× as long as the one
@@ -68,22 +75,26 @@ little faster):
 
 | Player | First ascension |
 |---|---|
-| Idle only | ~19 h |
-| 1 click/s | ~11 h |
-| 3 clicks/s | ~7 h |
+| Idle only | ~13 h |
+| 1 click/s | ~11.5 h |
+| 3 clicks/s | ~11 h |
+
+Clicking matters most in the early tiers; from about Cosmic on, buildings and
+their milestone doublings carry the income and idle play keeps up.
 
 To retune, change a level in the table and rerun the simulation; one level is
-about 10% more cost.
+about 10% more cost. Refit after any change to buildings or multipliers.
 
 **After ascension** all prestige costs are multiplied by
-`ASCENSION_COST_FACTOR^ascensions` (factor 4.0). It has to exceed attunement's
-×3 income per point, otherwise each ascension makes the next run easier; at
-4.0 each run is a little longer than the last. Set the factor to 1.0 to
-disable.
+`ASCENSION_COST_FACTOR^ascensions` (factor 5.0). It has to be well above
+attunement's ×3 income per point, otherwise each ascension makes the next run
+easier; at 5.0 the second run takes about 14 hours and the third about 15.
+Set the factor to 1.0 to disable.
 
 History: ×10/tier (diverged) → ×3/tier → OSRS XP to level 99 (too fast) → OSRS
 XP to level 126 + per-ascension scaling ×2 (v1.0; late tiers took seconds) →
-fitted level table × 2^tier, ascension scaling ×4.
+fitted level table × 2^tier, ascension ×4 → four more buildings, tier unlocks
+and ownership milestones; refitted table × 4^tier, ascension ×5.
 
 ## Ascension (second prestige layer)
 
@@ -109,6 +120,18 @@ Repeatable cost = `baseCost × 1.15^owned`; reset on prestige.
 | Abyssal leech | +8/s | 10,000 |
 | ZMI altar trips | +30/s, 10% of seconds yield 0 | 75,000 |
 | Wicked hood | +150/s | 400,000 |
+| Abyss runner (from Fire) | +750/s | 2,400,000 |
+| Blood altar runner (from Chaos) | +4,000/s | 15,000,000 |
+| Guardians of the Rift (from Law) | +20,000/s | 90,000,000 |
+| Runespan siphon (from Soul) | +100,000/s | 540,000,000 |
+
+The four big buildings only appear in the shop from their rune tier on
+(`UPGRADE_UNLOCK_TIERS`), so they are locked again after an ascension. The
+shop shows a "??? — unlocks at X runes" line for the next one.
+
+**Ownership milestones:** owning 10, 25, 50 and 100 of an idle building each
+double that building's output (`MILESTONE_COUNTS`). Talismans have none.
+Nothing extra is saved for this; it is derived from the counts.
 
 One-offs: pouch ladder Small→Colossal (500 / 5k / 50k / 500k / 5M, each ×2
 points/click); Daeyalt shard infusion (25,000, then an activatable ×2-for-60s
@@ -141,7 +164,7 @@ current character after confirmation; achievements are kept.
 
 - Party leaderboard (broadcast lifetime points over the party websocket)
 - Buy-max (currently shift-click buys up to 10)
-- Refit `PRESTIGE_LEVELS` after adding buildings or synergies (they speed
-  everything up)
-- Idle-only play is slow at the start of each tier (miners are weak next to
-  clicking); synergies that tie clicks to idle income would narrow the gap
+- Cross-building synergies (one building boosting another); refit
+  `PRESTIGE_LEVELS` afterwards
+- Idle-only play is slow in the first few tiers (miners are weak next to
+  clicking); late tiers are the reverse, clicking barely matters there
